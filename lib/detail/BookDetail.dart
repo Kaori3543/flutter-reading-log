@@ -1,10 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-class CouponDetail extends StatelessWidget {
+class BookDetail extends StatelessWidget {
 
   Function closeAction;
-  CouponDetail(this.closeAction);
+  BookDetail(this.closeAction);
 
   @override
   Widget build(BuildContext context) {

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:sample/list/CouponListItem.dart';
+import 'package:sample/list/BookListItem.dart';
 
-class CouponListView extends StatelessWidget{
+class BookListView extends StatelessWidget{
 
   final VoidCallback? onPressed;
-  const CouponListView(this.onPressed, {super.key});
+  const BookListView(this.onPressed, {super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +32,7 @@ class CouponListView extends StatelessWidget{
     return ListView.builder(
       itemCount: items.length,
         itemBuilder: (BuildContext context, int index) {
-          return CouponListItem(onPressed ?? () {});
+          return BookListItem(onPressed ?? () {});
         }
     );
   }

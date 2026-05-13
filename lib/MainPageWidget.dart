@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '/detail/CouponDetail.dart';
-import '/list/CouponListView.dart';
+import '/detail/BookDetail.dart';
+import '/list/BookListView.dart';
 
 class MainPageWidget extends StatefulWidget{
 
@@ -31,9 +31,9 @@ class _MainPageWidget extends State<MainPageWidget>{
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        CouponListView(openDetail),
+        BookListView(openDetail),
         if (_isSelectedItem)
-          CouponDetail(closeDetail)
+          BookDetail(closeDetail)
       ],
     );
   }
