@@ -174,9 +174,9 @@
 
 | 週   | 内容                                                              |
 |------|-------------------------------------------------------------------|
-| W1   | データモデル定義 + ローカルDB セットアップ + 楽天API疎通確認      |
-| W2   | SearchPage 実装 + http 連携 + JSON パース                         |
-| W3   | BookshelfPage（GridView） + 登録フロー                            |
+| W1   | データモデル定義 + Riverpod 状態管理 + UI のデータ駆動化           |
+| W2   | 楽天 Books API 疎通 + SearchPage 実装 + http 連携 + JSON パース    |
+| W3   | ローカル DB（hive）+ BookshelfPage GridView 化 + 登録フロー + CachedNetworkImage |
 | W4   | BookDetailPage + Hero アニメーション → **MVP 完成 ★**             |
 
 ### Phase 2
