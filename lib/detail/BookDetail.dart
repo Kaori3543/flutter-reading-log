@@ -44,7 +44,11 @@ class BookDetail extends StatelessWidget {
                 BoxShadow(color: Colors.grey, blurRadius: 5),
               ],
             ),
-            child: mainContent(),
+            // SingleChildScrollView でラップ。
+            // 縦方向に Column の中身がカードのサイズを超えても overflow せず、
+            // スクロールで全要素にアクセスできるようにする
+            // （閉じるボタンが画面外に押し出される問題への対策）。
+            child: SingleChildScrollView(child: mainContent()),
           ),
         ),
       ),
@@ -56,8 +60,15 @@ class BookDetail extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 表紙画像（W3 で CachedNetworkImage 化予定）
-        Center(child: Image.asset('assets/images/c_img.jpg')),
+        // 表紙画像（W3 で CachedNetworkImage 化予定）。
+        // height を指定してモーダル全体が縦に伸びすぎないようにする。
+        Center(
+          child: Image.asset(
+            'assets/images/c_img.jpg',
+            height: 180,
+            fit: BoxFit.contain,
+          ),
+        ),
         const SizedBox(height: 12),
         // タイトル
         Text(
