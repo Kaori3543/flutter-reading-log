@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '/list/BookListView.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'MainPageWidget.dart';
 
 
@@ -11,18 +11,13 @@ import 'ThirdPage.dart';
 */
 
 void main() {
-  runApp(const MyApp());
-
+  // ProviderScope で全ウィジェットツリーをラップ。
+  // これにより配下のあらゆる ConsumerWidget から Riverpod の provider を参照できる。
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-  //ListViewのためのダミーメソッド
-  void dummyDetail()
-  {
-
-  }
 
   // This widget is the root of your application.
   @override
