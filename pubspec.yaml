@@ -34,6 +34,12 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  # Riverpod 2.x 系を使う。
+  # 理由: ユーザー方針として「学習リソース・情報源が豊富で codegen 不要な
+  # StateNotifierProvider」を採用したいため。Riverpod 3.x では StateNotifierProvider /
+  # StateProvider が削除され、新しい Notifier API への移行が必要になる。
+  # 今のスキル段階では、より情報量の多い 2.x の伝統的パターンを学ぶ方が効率的。
+  flutter_riverpod: ^2.6.1
 
 dev_dependencies:
   flutter_test:
