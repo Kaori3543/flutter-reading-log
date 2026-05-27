@@ -40,6 +40,7 @@ dependencies:
   # StateProvider が削除され、新しい Notifier API への移行が必要になる。
   # 今のスキル段階では、より情報量の多い 2.x の伝統的パターンを学ぶ方が効率的。
   flutter_riverpod: ^2.6.1
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
