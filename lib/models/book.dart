@@ -1,7 +1,7 @@
 /// 読書記録アプリの中核となる「本」のデータモデル。
 ///
 /// W1 ではダミーデータを保持するためのプレーンな Dart クラスとして実装。
-/// W3 で hive にシリアライズするときに toJson/fromJson を追加予定。
+/// W3 で hive 永続化のための toMap / fromMap を追加（Map ベース、codegen 不要）。
 library;
 
 /// 本の読書ステータス。
@@ -97,6 +97,57 @@ class Book {
       rating: rating ?? this.rating,
       startedAt: startedAt ?? this.startedAt,
       finishedAt: finishedAt ?? this.finishedAt,
+    );
+  }
+
+  /// Book を hive 永続化用の Map に変換する。
+  ///
+  /// hive_ce は Map をネイティブで保存できるため、codegen (TypeAdapter) を
+  /// 使わずに済む（W3 で確定した方針）。
+  /// enum は name 文字列、DateTime は ISO8601 文字列にして安全に保存する。
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'isbn': isbn,
+      'title': title,
+      'author': author,
+      'publisher': publisher,
+      'coverImageUrl': coverImageUrl,
+      'totalPages': totalPages,
+      'status': status.name,
+      'currentPage': currentPage,
+      'rating': rating,
+      'startedAt': startedAt?.toIso8601String(),
+      'finishedAt': finishedAt?.toIso8601String(),
+    };
+  }
+
+  /// hive から読み出した Map を Book に変換する。
+  ///
+  /// 旧データのフィールド欠落や型不一致に耐性を持たせるため、必須項目
+  /// 以外は null 安全に扱う（status は値が壊れていたら wantToRead に
+  /// fallback）。
+  factory Book.fromMap(Map<String, dynamic> map) {
+    return Book(
+      id: map['id'] as String,
+      isbn: map['isbn'] as String?,
+      title: map['title'] as String,
+      author: map['author'] as String,
+      publisher: map['publisher'] as String?,
+      coverImageUrl: map['coverImageUrl'] as String?,
+      totalPages: map['totalPages'] as int?,
+      status: BookStatus.values.firstWhere(
+        (s) => s.name == map['status'],
+        orElse: () => BookStatus.wantToRead,
+      ),
+      currentPage: map['currentPage'] as int? ?? 0,
+      rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
+      startedAt: map['startedAt'] != null
+          ? DateTime.parse(map['startedAt'] as String)
+          : null,
+      finishedAt: map['finishedAt'] != null
+          ? DateTime.parse(map['finishedAt'] as String)
+          : null,
     );
   }
 
