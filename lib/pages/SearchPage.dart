@@ -1,28 +1,25 @@
 /// 本を検索する画面。
 ///
-/// W2 で導入。楽天 Books API でキーワード検索し、結果を ListView で表示する。
-/// W3 で「結果タップ → 本棚に登録」のフローを追加予定（現在は SnackBar の
-/// 案内だけ）。
-///
-/// Flutter 特性として活用:
-/// - Navigator.push でこのページに遷移する（MainPageWidget の FAB から）
-/// - async/await + FutureBuilder で API レスポンスのローディング表示
-/// - TextField + onSubmitted でエンターキー入力に対応
+/// W2 で導入（楽天 Books API 連携）。
+/// W3 で「結果から本棚に追加する」フローを SnackBar の案内から本物の
+/// 追加処理（hive に保存 → 本棚に反映）に置き換えた。
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sample/list/BookListItem.dart';
 import 'package:sample/models/book.dart';
+import 'package:sample/providers/book_list_provider.dart';
 import 'package:sample/services/rakuten_api.dart';
 
-class SearchPage extends StatefulWidget {
+class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
 
   @override
-  State<SearchPage> createState() => _SearchPageState();
+  ConsumerState<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> {
+class _SearchPageState extends ConsumerState<SearchPage> {
   final _controller = TextEditingController();
   final _api = RakutenApi();
 
@@ -41,6 +38,49 @@ class _SearchPageState extends State<SearchPage> {
     setState(() {
       _searchFuture = _api.searchBooks(query);
     });
+  }
+
+  /// 検索結果の本を本棚に追加する（W3 で実装）。
+  /// 重複チェック → 確認ダイアログ → hive に保存 → SnackBar で通知。
+  Future<void> _addBook(Book book) async {
+    final notifier = ref.read(bookListProvider.notifier);
+
+    // 重複チェック
+    if (notifier.exists(book.id)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('「${book.title}」は既に本棚に登録されています')),
+      );
+      return;
+    }
+
+    // 確認ダイアログ
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('本棚に追加'),
+        content: Text('「${book.title}」を本棚に追加しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('追加'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // hive に保存（provider 経由）
+    await notifier.add(book);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('「${book.title}」を本棚に追加しました')),
+    );
   }
 
   @override
@@ -85,7 +125,6 @@ class _SearchPageState extends State<SearchPage> {
 
   Widget _buildResults() {
     if (_searchFuture == null) {
-      // 未検索: 案内テキストだけ表示
       return const Center(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 24),
@@ -101,11 +140,9 @@ class _SearchPageState extends State<SearchPage> {
     return FutureBuilder<List<Book>>(
       future: _searchFuture,
       builder: (context, snapshot) {
-        // ローディング中
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        // エラー（applicationId 未設定 / 通信失敗 / パース失敗 など）
         if (snapshot.hasError) {
           return Center(
             child: Padding(
@@ -118,7 +155,6 @@ class _SearchPageState extends State<SearchPage> {
             ),
           );
         }
-        // 結果あり
         final books = snapshot.data ?? [];
         if (books.isEmpty) {
           return const Center(
@@ -131,17 +167,7 @@ class _SearchPageState extends State<SearchPage> {
             final book = books[index];
             return BookListItem(
               book: book,
-              onPressed: () {
-                // W3 で「本棚に追加」フローを実装予定。
-                // 現在は SnackBar の案内だけ。
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      '「${book.title}」を本棚に追加する機能は W3 で実装予定です',
-                    ),
-                  ),
-                );
-              },
+              onPressed: () => _addBook(book),
             );
           },
         );

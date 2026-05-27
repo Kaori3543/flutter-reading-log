@@ -1,9 +1,11 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../models/book.dart';
 
 /// 本の詳細モーダル（半透明オーバーレイ + 中央カード）。
 ///
-/// W1 で Book モデルを受け取り、書名・著者・出版社・ステータス・進捗を表示する形に変更。
+/// W1 で Book モデル受け取り版に変更。
+/// W3 で表紙画像を Image.asset → CachedNetworkImage に置換。
 /// W4 で Stack モーダル → Navigator.push + Hero アニメに進化させる予定。
 class BookDetail extends StatelessWidget {
   final Book book;
@@ -15,7 +17,6 @@ class BookDetail extends StatelessWidget {
     required this.closeAction,
   });
 
-  /// ステータスを日本語ラベルに変換。
   String _statusLabel() {
     switch (book.status) {
       case BookStatus.wantToRead:
@@ -44,10 +45,6 @@ class BookDetail extends StatelessWidget {
                 BoxShadow(color: Colors.grey, blurRadius: 5),
               ],
             ),
-            // SingleChildScrollView でラップ。
-            // 縦方向に Column の中身がカードのサイズを超えても overflow せず、
-            // スクロールで全要素にアクセスできるようにする
-            // （閉じるボタンが画面外に押し出される問題への対策）。
             child: SingleChildScrollView(child: mainContent()),
           ),
         ),
@@ -60,17 +57,8 @@ class BookDetail extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 表紙画像（W3 で CachedNetworkImage 化予定）。
-        // height を指定してモーダル全体が縦に伸びすぎないようにする。
-        Center(
-          child: Image.asset(
-            'assets/images/c_img.jpg',
-            height: 180,
-            fit: BoxFit.contain,
-          ),
-        ),
+        Center(child: _coverImage()),
         const SizedBox(height: 12),
-        // タイトル
         Text(
           book.title,
           style: const TextStyle(
@@ -79,22 +67,51 @@ class BookDetail extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        // 著者 / 出版社
         Text(
           '${book.author}${book.publisher != null ? "（${book.publisher}）" : ""}',
           style: const TextStyle(fontSize: 14, color: Colors.black54),
         ),
         const SizedBox(height: 12),
-        // ステータスと進捗
         bookInfoBox(),
         const SizedBox(height: 12),
-        // 閉じるボタン
         Center(child: closeButton()),
       ],
     );
   }
 
-  /// ステータス・ページ進捗・評価をまとめて表示するエリア。
+  /// 表紙画像。W3 で CachedNetworkImage 化。
+  /// URL が無い場合はアイコンのプレースホルダー。
+  Widget _coverImage() {
+    final url = book.coverImageUrl;
+    if (url == null || url.isEmpty) {
+      return Container(
+        width: 120,
+        height: 180,
+        color: Colors.grey.shade300,
+        child: const Center(
+          child: Icon(Icons.book, size: 60, color: Colors.black54),
+        ),
+      );
+    }
+    return CachedNetworkImage(
+      imageUrl: url,
+      height: 180,
+      fit: BoxFit.contain,
+      placeholder: (context, url) => const SizedBox(
+        height: 180,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      errorWidget: (context, url, error) => Container(
+        width: 120,
+        height: 180,
+        color: Colors.grey.shade200,
+        child: const Center(
+          child: Icon(Icons.broken_image, color: Colors.grey),
+        ),
+      ),
+    );
+  }
+
   Widget bookInfoBox() {
     return Container(
       padding: const EdgeInsets.all(10),
@@ -108,7 +125,8 @@ class BookDetail extends StatelessWidget {
           Text('ステータス: ${_statusLabel()}'),
           if (book.totalPages != null)
             Text('進捗: ${book.currentPage} / ${book.totalPages} ページ'),
-          if (book.rating > 0) Text('評価: ${book.rating.toStringAsFixed(1)} / 5.0'),
+          if (book.rating > 0)
+            Text('評価: ${book.rating.toStringAsFixed(1)} / 5.0'),
         ],
       ),
     );

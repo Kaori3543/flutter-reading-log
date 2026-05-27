@@ -1,114 +1,77 @@
 /// 本棚の本のリストを保持する Riverpod provider。
 ///
-/// W1 ではダミーの 7 冊を初期データとして持つ。
-/// W3 で hive Repository に置き換え、永続化されたデータを返すようにする予定。
+/// W1 ではダミー Book 7 件を static で保持していたが、W3 で hive
+/// 経由の永続データに置き換えた。
+/// 検索結果からの追加・編集・削除は本 provider 経由で行う。
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/book.dart';
+import '../services/book_repository.dart';
 
-/// 本のリストを管理する StateNotifier。
+/// BookRepository を共有する Provider。
 ///
-/// StateNotifierProvider を採用した理由：
-/// - codegen 不要で導入が軽量
-/// - 学習リソース・サンプルコードが豊富で、つまずいた時の情報収集がしやすい
-/// - 不変オブジェクト（`List<Book>`）を state として扱い、変更時は新しい List を生成する
-///   Flutter のリアクティブな再描画の仕組みと自然に噛み合う
-class BookListNotifier extends StateNotifier<List<Book>> {
-  BookListNotifier() : super(_initialBooks);
+/// main() で実際の Repository（init 済み）を `overrideWithValue` で
+/// 注入する。テストでは fake repository を注入できる。
+final bookRepositoryProvider = Provider<BookRepository>((ref) {
+  throw UnimplementedError(
+    'bookRepositoryProvider must be overridden in main() '
+    'with an initialized BookRepository',
+  );
+});
 
-  /// W1 用のダミーデータ。
-  /// 実在の本 7 冊で、ステータスをばらつかせて本棚らしい見た目にしている。
-  /// W3 で楽天 Books API 由来の実データに置き換わる予定。
-  static final List<Book> _initialBooks = [
-    Book(
-      id: '1',
-      title: 'Search Inside Yourself',
-      author: 'Chade-Meng Tan',
-      publisher: '英治出版',
-      totalPages: 320,
-      currentPage: 320,
-      status: BookStatus.finished,
-      rating: 4.0,
-      startedAt: DateTime(2025, 10, 1),
-      finishedAt: DateTime(2025, 11, 10),
-    ),
-    Book(
-      id: '2',
-      title: 'DIE WITH ZERO',
-      author: 'Bill Perkins',
-      publisher: 'ダイヤモンド社',
-      totalPages: 280,
-      currentPage: 280,
-      status: BookStatus.finished,
-      rating: 5.0,
-      startedAt: DateTime(2025, 11, 12),
-      finishedAt: DateTime(2025, 12, 5),
-    ),
-    Book(
-      id: '3',
-      title: 'The Psychology of Money',
-      author: 'Morgan Housel',
-      publisher: 'ダイヤモンド社',
-      totalPages: 250,
-      currentPage: 250,
-      status: BookStatus.finished,
-      rating: 4.0,
-      startedAt: DateTime(2025, 12, 8),
-      finishedAt: DateTime(2026, 1, 15),
-    ),
-    Book(
-      id: '4',
-      title: 'YOUR TIME',
-      author: '鈴木祐',
-      publisher: '河出書房新社',
-      totalPages: 320,
-      currentPage: 120,
-      status: BookStatus.reading,
-      startedAt: DateTime(2026, 3, 1),
-    ),
-    Book(
-      id: '5',
-      title: "CAN'T HURT ME",
-      author: 'David Goggins',
-      publisher: 'パンローリング',
-      totalPages: 280,
-      currentPage: 50,
-      status: BookStatus.reading,
-      startedAt: DateTime(2026, 4, 20),
-    ),
-    Book(
-      id: '6',
-      title: 'Effectuation',
-      author: 'Saras Sarasvathy',
-      publisher: '碩学舎',
-      totalPages: 380,
-      status: BookStatus.wantToRead,
-    ),
-    Book(
-      id: '7',
-      title: 'Dark Horse',
-      author: 'Todd Rose & Ogi Ogas',
-      publisher: '三笠書房',
-      totalPages: 304,
-      status: BookStatus.wantToRead,
-    ),
-  ];
+/// 本棚の本リストを管理する StateNotifier。
+///
+/// W3 で大きく変更：
+/// - ダミー 7 件の static リスト → BookRepository 経由の hive データ
+/// - add / update / remove の各操作で hive に書き込み + state 同期
+class BookListNotifier extends StateNotifier<List<Book>> {
+  BookListNotifier(this._repository) : super([]) {
+    _load();
+  }
+
+  final BookRepository _repository;
+
+  /// hive から本リストを読み込んで state にセット。
+  /// 初期化時 + 変更操作の後に呼ぶ。
+  void _load() {
+    state = _repository.getAll();
+  }
+
+  /// 本を追加（または既存なら上書き）し、本棚を再ロード。
+  Future<void> add(Book book) async {
+    await _repository.save(book);
+    _load();
+  }
+
+  /// 本のフィールドを更新。
+  Future<void> update(Book book) async {
+    await _repository.save(book);
+    _load();
+  }
+
+  /// 本を削除。
+  Future<void> remove(String id) async {
+    await _repository.remove(id);
+    _load();
+  }
+
+  /// 同じ id の本が既に登録されているか。
+  /// 検索結果からの「追加」前に重複をユーザーに知らせる目的。
+  bool exists(String id) => _repository.exists(id);
 }
 
 /// 本棚の本のリストを公開する provider。
 /// ConsumerWidget から `ref.watch(bookListProvider)` で参照する。
 final bookListProvider =
-    StateNotifierProvider<BookListNotifier, List<Book>>(
-  (ref) => BookListNotifier(),
-);
+    StateNotifierProvider<BookListNotifier, List<Book>>((ref) {
+  final repository = ref.watch(bookRepositoryProvider);
+  return BookListNotifier(repository);
+});
 
 /// 詳細モーダルに表示する「選択中の本」を保持する provider。
 ///
-/// - null なら詳細モーダルは閉じている状態
-/// - Book を入れると MainPageWidget がそれを検知してモーダルを表示する
-///
-/// StateProvider（軽量、単一値の状態管理）を採用。
-/// 旧 MainPageWidget の `bool _isSelectedItem` を「どの本を選んだか」も含めて表現できるよう
-/// Book? に拡張した形。
+/// W1 から同じ役割。null なら詳細モーダルは閉じている状態。
+/// W4 で Hero アニメ + Navigator.push に進化させる予定だが、
+/// 「選択中の本」を state として持つ概念は維持する。
 final selectedBookProvider = StateProvider<Book?>((ref) => null);
