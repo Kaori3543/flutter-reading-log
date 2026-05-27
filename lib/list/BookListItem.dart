@@ -1,10 +1,12 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:sample/list/MainContent.dart';
 import '../models/book.dart';
 
-/// 本棚のリストアイテム（1 冊分のカード）。
-/// W1 で Book モデルを受け取る形に変更。
-/// 表紙画像は W3 で CachedNetworkImage + 楽天 API 由来の URL に置換予定。
+/// 検索結果や横長リストで使う「1 冊分のカード」。
+///
+/// 本棚画面では W3 で導入した BookGridItem (GridView) を使うため、
+/// このウィジェットは主に SearchPage の検索結果一覧で使われる。
 class BookListItem extends StatelessWidget {
   final Book book;
   final VoidCallback onPressed;
@@ -36,7 +38,7 @@ class BookListItem extends StatelessWidget {
               color: Colors.white,
               boxShadow: const [BoxShadow(color: Colors.grey, blurRadius: 1)],
             ),
-            child: imageWidget(),
+            child: _imageWidget(),
           ),
           Expanded(
             child: SizedBox(
@@ -50,47 +52,33 @@ class BookListItem extends StatelessWidget {
   }
 
   /// 表紙画像を表示。
-  /// W1 では全 Book で c_img.jpg を共通使用（楽天 API 未導入のため）。
-  /// W3 で book.coverImageUrl を CachedNetworkImage で表示する形に置換予定。
-  Widget imageWidget() {
+  ///
+  /// W3 で楽天 API 由来の URL を CachedNetworkImage で表示する形に置換した。
+  /// URL が無い本（楽天で画像が取得できなかった場合）はプレースホルダー
+  /// のアイコンを表示する。
+  Widget _imageWidget() {
+    final url = book.coverImageUrl;
+    if (url == null || url.isEmpty) {
+      return Container(
+        color: Colors.grey.shade300,
+        child: const Center(
+          child: Icon(Icons.book, size: 40, color: Colors.black54),
+        ),
+      );
+    }
     return ClipRect(
-      child: FittedBox(
+      child: CachedNetworkImage(
+        imageUrl: url,
         fit: BoxFit.cover,
-        child: Image.asset(
-          'assets/images/c_img.jpg',
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              width: 100,
-              height: 100,
-              color: Colors.red[100],
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error, color: Colors.red, size: 30),
-                  const SizedBox(height: 4),
-                  const Text(
-                    '画像読み込みエラー',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'asset not found',
-                    style: TextStyle(
-                      color: Colors.red[700],
-                      fontSize: 8,
-                      decoration: TextDecoration.lineThrough,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            );
-          },
+        placeholder: (context, url) => Container(
+          color: Colors.grey.shade100,
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+        errorWidget: (context, url, error) => Container(
+          color: Colors.grey.shade200,
+          child: const Center(
+            child: Icon(Icons.broken_image, color: Colors.grey),
+          ),
         ),
       ),
     );
