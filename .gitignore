@@ -18,10 +18,11 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# このプロジェクトでは launch.json に楽天 API の applicationId を
+# --dart-define で埋め込むため、.vscode/ 全体を除外する。
+# launch.json のテンプレートは launch.example.json で共有する。
+.vscode/*
+!.vscode/launch.example.json
 
 # Flutter/Dart/Pub related
 **/doc/api/

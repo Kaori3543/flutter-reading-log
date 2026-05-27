@@ -1,0 +1,42 @@
+{
+  "// 説明": [
+    "VS Code でこのプロジェクトを実行・デバッグするための設定テンプレート。",
+    "クローン直後はこのファイルを .vscode/launch.json にコピーして、",
+    "RAKUTEN_APP_ID と RAKUTEN_ACCESS_KEY を自分の楽天デベロッパー",
+    "情報に書き換えてください。",
+    "",
+    "楽天デベロッパーの登録は https://webservice.rakuten.co.jp/ で",
+    "アプリ登録すると以下が取得できます:",
+    "  - アプリケーションID (UUID 形式)  → RAKUTEN_APP_ID",
+    "  - アクセスキー (目アイコンで表示)  → RAKUTEN_ACCESS_KEY",
+    "両方とも楽天 Books API のリクエストに必須です（2024 年以降）。",
+    "",
+    "launch.json は .gitignore で除外されているため、値を書き換えても",
+    "GitHub には push されません。"
+  ],
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter (Debug, Windows)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "-d",
+        "windows",
+        "--dart-define=RAKUTEN_APP_ID=YOUR_APP_ID_HERE",
+        "--dart-define=RAKUTEN_ACCESS_KEY=YOUR_ACCESS_KEY_HERE"
+      ]
+    },
+    {
+      "name": "Flutter (Debug, any device)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--dart-define=RAKUTEN_APP_ID=YOUR_APP_ID_HERE",
+        "--dart-define=RAKUTEN_ACCESS_KEY=YOUR_ACCESS_KEY_HERE"
+      ]
+    }
+  ]
+}
