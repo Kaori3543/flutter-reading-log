@@ -2,9 +2,10 @@
 ///
 /// W1〜W3: BookListView の上に半透明オーバーレイで重なる Stack モーダル
 /// W4: 独立した Scaffold ベースのページ + AppBar の戻る + 削除ボタン
-///   - Stack モーダルから Navigator.push のページに進化（看板機能の準備）
+///   - Stack モーダルから Navigator.push のページに進化（看板機能）
 ///   - 「本棚から削除」ボタンを AppBar の actions に追加
-///   - 表紙画像の Hero アニメは別コミット（W4 コミット 3）で追加する
+///   - 表紙画像を Hero(tag: 'cover-${book.id}') でラップして、本棚画面
+///     （BookListItem）の表紙から滑らかに拡大しながら飛んでくる
 library;
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -109,11 +110,12 @@ class BookDetail extends ConsumerWidget {
     );
   }
 
-  /// 表紙画像（W4 コミット 3 で Hero ラップを追加する予定）。
+  /// 表紙画像。Hero でラップして本棚画面の表紙と滑らかにつなぐ（W4 コミット 3）。
   Widget _coverImage() {
     final url = book.coverImageUrl;
+    final Widget image;
     if (url == null || url.isEmpty) {
-      return Container(
+      image = Container(
         width: 160,
         height: 220,
         color: Colors.grey.shade300,
@@ -121,23 +123,32 @@ class BookDetail extends ConsumerWidget {
           child: Icon(Icons.book, size: 80, color: Colors.black54),
         ),
       );
-    }
-    return CachedNetworkImage(
-      imageUrl: url,
-      height: 220,
-      fit: BoxFit.contain,
-      placeholder: (context, url) => const SizedBox(
+    } else {
+      image = CachedNetworkImage(
+        imageUrl: url,
         height: 220,
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      errorWidget: (context, url, error) => Container(
-        width: 160,
-        height: 220,
-        color: Colors.grey.shade200,
-        child: const Center(
-          child: Icon(Icons.broken_image, color: Colors.grey),
+        fit: BoxFit.contain,
+        placeholder: (context, url) => const SizedBox(
+          height: 220,
+          child: Center(child: CircularProgressIndicator()),
         ),
-      ),
+        errorWidget: (context, url, error) => Container(
+          width: 160,
+          height: 220,
+          color: Colors.grey.shade200,
+          child: const Center(
+            child: Icon(Icons.broken_image, color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    // Hero アニメ。tag は Book.id ベースで一意。
+    // 本棚画面（BookListItem）の表紙画像と同じ tag を使うことで、
+    // 画面遷移時に表紙が滑らかに飛んで拡大する。
+    return Hero(
+      tag: 'cover-${book.id}',
+      child: image,
     );
   }
 

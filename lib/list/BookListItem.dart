@@ -5,8 +5,11 @@ import '../models/book.dart';
 
 /// 検索結果や横長リストで使う「1 冊分のカード」。
 ///
-/// 本棚画面では W3 で導入した BookGridItem (GridView) を使うため、
-/// このウィジェットは主に SearchPage の検索結果一覧で使われる。
+/// W3: Image.asset → CachedNetworkImage に置換
+/// W4: 表紙画像を Hero(tag: 'cover-${book.id}') でラップ。
+///     本棚画面 → BookDetail ページ遷移時に、表紙が滑らかに飛んで拡大する。
+///     SearchPage では Navigator.push しないので Hero は発火しないが、
+///     ウィジェット自体は同じものを使えるよう、共通でラップしている。
 class BookListItem extends StatelessWidget {
   final Book book;
   final VoidCallback onPressed;
@@ -51,36 +54,43 @@ class BookListItem extends StatelessWidget {
     );
   }
 
-  /// 表紙画像を表示。
-  ///
-  /// W3 で楽天 API 由来の URL を CachedNetworkImage で表示する形に置換した。
-  /// URL が無い本（楽天で画像が取得できなかった場合）はプレースホルダー
-  /// のアイコンを表示する。
+  /// 表紙画像。
+  /// W3 で CachedNetworkImage 化、W4 で Hero ラップを追加。
   Widget _imageWidget() {
     final url = book.coverImageUrl;
+    final Widget image;
     if (url == null || url.isEmpty) {
-      return Container(
+      image = Container(
         color: Colors.grey.shade300,
         child: const Center(
           child: Icon(Icons.book, size: 40, color: Colors.black54),
         ),
       );
-    }
-    return ClipRect(
-      child: CachedNetworkImage(
-        imageUrl: url,
-        fit: BoxFit.cover,
-        placeholder: (context, url) => Container(
-          color: Colors.grey.shade100,
-          child: const Center(child: CircularProgressIndicator()),
-        ),
-        errorWidget: (context, url, error) => Container(
-          color: Colors.grey.shade200,
-          child: const Center(
-            child: Icon(Icons.broken_image, color: Colors.grey),
+    } else {
+      image = ClipRect(
+        child: CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            color: Colors.grey.shade100,
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+          errorWidget: (context, url, error) => Container(
+            color: Colors.grey.shade200,
+            child: const Center(
+              child: Icon(Icons.broken_image, color: Colors.grey),
+            ),
           ),
         ),
-      ),
+      );
+    }
+
+    // W4: Hero アニメ。tag は Book.id ベースで一意。
+    // 本棚画面の表紙 → BookDetail の表紙 と同じ tag を使うことで遷移時に
+    // 滑らかに拡大しながら飛ぶアニメが発火する。
+    return Hero(
+      tag: 'cover-${book.id}',
+      child: image,
     );
   }
 }
