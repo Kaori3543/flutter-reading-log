@@ -112,25 +112,4 @@ void main() {
     });
   });
 
-  group('selectedBookProvider', () {
-    test('初期値は null（モーダル閉じ状態）', () {
-      final container = makeContainer();
-      addTearDown(container.dispose);
-
-      expect(container.read(selectedBookProvider), isNull);
-    });
-
-    test('Book をセットでき、null に戻せる', () {
-      final container = makeContainer();
-      addTearDown(container.dispose);
-
-      const book = Book(id: 'b1', title: 'T', author: 'A');
-
-      container.read(selectedBookProvider.notifier).state = book;
-      expect(container.read(selectedBookProvider), equals(book));
-
-      container.read(selectedBookProvider.notifier).state = null;
-      expect(container.read(selectedBookProvider), isNull);
-    });
-  });
 }

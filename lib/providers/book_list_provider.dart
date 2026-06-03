@@ -69,9 +69,3 @@ final bookListProvider =
   return BookListNotifier(repository);
 });
 
-/// 詳細モーダルに表示する「選択中の本」を保持する provider。
-///
-/// W1 から同じ役割。null なら詳細モーダルは閉じている状態。
-/// W4 で Hero アニメ + Navigator.push に進化させる予定だが、
-/// 「選択中の本」を state として持つ概念は維持する。
-final selectedBookProvider = StateProvider<Book?>((ref) => null);
