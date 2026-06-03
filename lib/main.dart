@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'MainPageWidget.dart';
 import 'providers/book_list_provider.dart';
+import 'providers/review_list_provider.dart';
 import 'services/book_repository.dart';
+import 'services/review_repository.dart';
 
 
 /*
@@ -21,18 +23,23 @@ Future<void> main() async {
   // 置かれ、アプリを閉じても本棚データが永続化される。
   await Hive.initFlutter();
 
-  // BookRepository を初期化（hive box を開く）して provider に注入。
-  // main で初期化することで、UI ウィジェット側は常に「init 済み」を前提に
-  // できる（毎回ローディング判定をする必要がない）。
-  final repository = BookRepository();
-  await repository.init();
+  // W3: BookRepository を初期化（本棚データ用の box を開く）。
+  // W5: ReviewRepository も初期化（レビューデータ用の別 box）。
+  // main で先に init を済ませることで、UI ウィジェット側は常に「init 済み」を
+  // 前提にできる（毎回ローディング判定をする必要がない）。
+  final bookRepo = BookRepository();
+  await bookRepo.init();
+
+  final reviewRepo = ReviewRepository();
+  await reviewRepo.init();
 
   // ProviderScope で全ウィジェットツリーをラップ。
-  // bookRepositoryProvider を override で実 Repository に差し替える。
+  // 各 Repository の provider を override で実 Repository に差し替える。
   runApp(
     ProviderScope(
       overrides: [
-        bookRepositoryProvider.overrideWithValue(repository),
+        bookRepositoryProvider.overrideWithValue(bookRepo),
+        reviewRepositoryProvider.overrideWithValue(reviewRepo),
       ],
       child: const MyApp(),
     ),

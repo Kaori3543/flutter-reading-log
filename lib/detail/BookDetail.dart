@@ -1,26 +1,52 @@
 /// 本の詳細ページ。
 ///
-/// W1〜W3: BookListView の上に半透明オーバーレイで重なる Stack モーダル
-/// W4: 独立した Scaffold ベースのページ + AppBar の戻る + 削除ボタン
-///   - Stack モーダルから Navigator.push のページに進化（看板機能）
-///   - 「本棚から削除」ボタンを AppBar の actions に追加
-///   - 表紙画像を Hero(tag: 'cover-${book.id}') でラップして、本棚画面
-///     （BookListItem）の表紙から滑らかに拡大しながら飛んでくる
+/// W4: Stack モーダル → Navigator.push の独立ページに進化、Hero アニメ追加
+/// W5: 編集 UI を追加
+///   - ChoiceChip でステータス変更（読みたい / 読書中 / 読了）
+///   - flutter_rating_bar で ★評価（5 段階）
+///   - TextField で進捗（currentPage）の編集
+///   - レビュー一覧 + 「+ 追加」ボタン（ReviewEditPage へ Navigator.push）
 library;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sample/pages/ReviewEditPage.dart';
 import '../models/book.dart';
+import '../models/review.dart';
 import '../providers/book_list_provider.dart';
+import '../providers/review_list_provider.dart';
 
-class BookDetail extends ConsumerWidget {
+class BookDetail extends ConsumerStatefulWidget {
   final Book book;
 
   const BookDetail({super.key, required this.book});
 
-  String _statusLabel() {
-    switch (book.status) {
+  @override
+  ConsumerState<BookDetail> createState() => _BookDetailState();
+}
+
+class _BookDetailState extends ConsumerState<BookDetail> {
+  late final TextEditingController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = TextEditingController(
+      text: widget.book.currentPage.toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  String _statusLabel(BookStatus s) {
+    switch (s) {
       case BookStatus.wantToRead:
         return '読みたい';
       case BookStatus.reading:
@@ -37,9 +63,8 @@ class BookDetail extends ConsumerWidget {
     return '$y/$m/$d';
   }
 
-  /// 「本棚から削除」フロー。
-  /// 確認ダイアログ → hive から削除 → 本棚画面に戻る + SnackBar 通知。
-  Future<void> _confirmAndRemove(BuildContext context, WidgetRef ref) async {
+  /// 「本棚から削除」フロー（W4 で追加）。
+  Future<void> _confirmAndRemove(Book book) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -62,15 +87,39 @@ class BookDetail extends ConsumerWidget {
 
     await ref.read(bookListProvider.notifier).remove(book.id);
 
-    if (!context.mounted) return;
+    if (!mounted) return;
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('「${book.title}」を本棚から削除しました')),
     );
   }
 
+  /// 進捗の TextField から数字を読み取って provider に保存（W5）。
+  Future<void> _saveProgress(Book book) async {
+    final input = int.tryParse(_pageController.text);
+    if (input == null) return;
+    final clamped = input.clamp(0, book.totalPages ?? input);
+    await ref.read(bookListProvider.notifier).updateProgress(book.id, clamped);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('進捗を $clamped ページに更新しました')),
+    );
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    // bookListProvider を watch して、最新の Book を取得する。
+    // 削除されたら null になり、自動で本棚画面に戻す。
+    final books = ref.watch(bookListProvider);
+    final book = books.where((b) => b.id == widget.book.id).firstOrNull;
+
+    if (book == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pop();
+      });
+      return const Scaffold(body: SizedBox.shrink());
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('本の詳細'),
@@ -79,7 +128,7 @@ class BookDetail extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.delete_outline),
             tooltip: '本棚から削除',
-            onPressed: () => _confirmAndRemove(context, ref),
+            onPressed: () => _confirmAndRemove(book),
           ),
         ],
       ),
@@ -88,7 +137,7 @@ class BookDetail extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(child: _coverImage()),
+            Center(child: _coverImage(book)),
             const SizedBox(height: 16),
             Text(
               book.title,
@@ -102,16 +151,23 @@ class BookDetail extends ConsumerWidget {
               '${book.author}${book.publisher != null ? "（${book.publisher}）" : ""}',
               style: const TextStyle(fontSize: 14, color: Colors.black54),
             ),
+            const SizedBox(height: 20),
+            _statusEditor(book),
             const SizedBox(height: 16),
-            _bookInfoBox(),
+            _ratingEditor(book),
+            const SizedBox(height: 16),
+            if (book.totalPages != null) _progressEditor(book),
+            const SizedBox(height: 16),
+            _dateInfo(book),
+            const SizedBox(height: 24),
+            _reviewSection(book),
           ],
         ),
       ),
     );
   }
 
-  /// 表紙画像。Hero でラップして本棚画面の表紙と滑らかにつなぐ（W4 コミット 3）。
-  Widget _coverImage() {
+  Widget _coverImage(Book book) {
     final url = book.coverImageUrl;
     final Widget image;
     if (url == null || url.isEmpty) {
@@ -143,17 +199,122 @@ class BookDetail extends ConsumerWidget {
       );
     }
 
-    // Hero アニメ。tag は Book.id ベースで一意。
-    // 本棚画面（BookListItem）の表紙画像と同じ tag を使うことで、
-    // 画面遷移時に表紙が滑らかに飛んで拡大する。
     return Hero(
       tag: 'cover-${book.id}',
       child: image,
     );
   }
 
-  /// 本の読書状態（ステータス・進捗・評価・日付）をまとめた表示エリア。
-  Widget _bookInfoBox() {
+  Widget _statusEditor(Book book) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'ステータス',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          children: BookStatus.values.map((s) {
+            final selected = book.status == s;
+            return ChoiceChip(
+              label: Text(_statusLabel(s)),
+              selected: selected,
+              onSelected: (_) {
+                if (!selected) {
+                  ref
+                      .read(bookListProvider.notifier)
+                      .updateStatus(book.id, s);
+                }
+              },
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _ratingEditor(Book book) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '評価',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            RatingBar.builder(
+              initialRating: book.rating,
+              minRating: 0,
+              direction: Axis.horizontal,
+              allowHalfRating: true,
+              itemCount: 5,
+              itemSize: 32,
+              itemPadding: const EdgeInsets.symmetric(horizontal: 2),
+              itemBuilder: (context, _) =>
+                  const Icon(Icons.star, color: Colors.amber),
+              onRatingUpdate: (rating) {
+                ref
+                    .read(bookListProvider.notifier)
+                    .updateRating(book.id, rating);
+              },
+            ),
+            const SizedBox(width: 8),
+            Text(
+              book.rating > 0
+                  ? '${book.rating.toStringAsFixed(1)} / 5.0'
+                  : '未評価',
+              style: const TextStyle(color: Colors.black54),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _progressEditor(Book book) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '進捗',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            SizedBox(
+              width: 80,
+              child: TextField(
+                controller: _pageController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text('/ ${book.totalPages} ページ'),
+            const SizedBox(width: 12),
+            ElevatedButton(
+              onPressed: () => _saveProgress(book),
+              child: const Text('更新'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _dateInfo(Book book) {
+    if (book.startedAt == null && book.finishedAt == null) {
+      return const SizedBox.shrink();
+    }
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -163,16 +324,83 @@ class BookDetail extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('ステータス: ${_statusLabel()}'),
-          if (book.totalPages != null)
-            Text('進捗: ${book.currentPage} / ${book.totalPages} ページ'),
-          if (book.rating > 0)
-            Text('評価: ${book.rating.toStringAsFixed(1)} / 5.0'),
           if (book.startedAt != null)
             Text('読み始め: ${_formatDate(book.startedAt!)}'),
           if (book.finishedAt != null)
             Text('読了: ${_formatDate(book.finishedAt!)}'),
         ],
+      ),
+    );
+  }
+
+  /// レビュー一覧 + 「追加」ボタン（W5 コミット 5 で追加）。
+  Widget _reviewSection(Book book) {
+    final reviews = ref.watch(reviewListProvider(book.id));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'レビュー',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: 8),
+            Text('(${reviews.length})',
+                style: const TextStyle(color: Colors.black54)),
+            const Spacer(),
+            TextButton.icon(
+              icon: const Icon(Icons.add),
+              label: const Text('追加'),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ReviewEditPage(bookId: book.id),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        if (reviews.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'まだレビューがありません',
+              style: TextStyle(color: Colors.black45),
+            ),
+          )
+        else
+          ...reviews.map((r) => _reviewTile(book.id, r)),
+      ],
+    );
+  }
+
+  Widget _reviewTile(String bookId, Review review) {
+    return Card(
+      child: ListTile(
+        title: Text(
+          review.content,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          review.updatedAt != null
+              ? '更新: ${_formatDate(review.updatedAt!)}'
+              : '作成: ${_formatDate(review.createdAt)}',
+          style: const TextStyle(fontSize: 11),
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  ReviewEditPage(bookId: bookId, existingReview: review),
+            ),
+          );
+        },
       ),
     );
   }

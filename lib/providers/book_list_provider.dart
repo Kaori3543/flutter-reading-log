@@ -59,6 +59,74 @@ class BookListNotifier extends StateNotifier<List<Book>> {
   /// 同じ id の本が既に登録されているか。
   /// 検索結果からの「追加」前に重複をユーザーに知らせる目的。
   bool exists(String id) => _repository.exists(id);
+
+  /// 本のステータスを変更（W5 で追加、自動で日付もセット）。
+  ///
+  /// - 「読みたい → 読書中」: startedAt = 今日
+  /// - 「読書中 or 読みたい → 読了」: finishedAt = 今日、currentPage = totalPages
+  /// - 「読了 → 読書中」: finishedAt = null（再読扱い）
+  Future<void> updateStatus(String bookId, BookStatus newStatus) async {
+    final book = _repository.findById(bookId);
+    if (book == null) return;
+
+    final now = DateTime.now();
+    DateTime? startedAt = book.startedAt;
+    DateTime? finishedAt = book.finishedAt;
+    int currentPage = book.currentPage;
+
+    // 「読みたい → 読書中」
+    if (newStatus == BookStatus.reading &&
+        book.status == BookStatus.wantToRead) {
+      startedAt = now;
+    }
+    // 「読書中 or 読みたい → 読了」
+    if (newStatus == BookStatus.finished &&
+        book.status != BookStatus.finished) {
+      finishedAt = now;
+      if (book.totalPages != null) {
+        currentPage = book.totalPages!;
+      }
+    }
+    // 「読了 → 読書中」（再読扱い、finishedAt をクリア）
+    if (newStatus == BookStatus.reading &&
+        book.status == BookStatus.finished) {
+      finishedAt = null;
+    }
+
+    // copyWith では null を意図的にセットできないため、直接 Book を生成。
+    final updated = Book(
+      id: book.id,
+      isbn: book.isbn,
+      title: book.title,
+      author: book.author,
+      publisher: book.publisher,
+      coverImageUrl: book.coverImageUrl,
+      totalPages: book.totalPages,
+      status: newStatus,
+      currentPage: currentPage,
+      rating: book.rating,
+      startedAt: startedAt,
+      finishedAt: finishedAt,
+    );
+    await _repository.save(updated);
+    _load();
+  }
+
+  /// 本の評価を変更（W5 で追加、0.0 〜 5.0）。
+  Future<void> updateRating(String bookId, double rating) async {
+    final book = _repository.findById(bookId);
+    if (book == null) return;
+    await _repository.save(book.copyWith(rating: rating));
+    _load();
+  }
+
+  /// 本の進捗（currentPage）を更新（W5 で追加）。
+  Future<void> updateProgress(String bookId, int currentPage) async {
+    final book = _repository.findById(bookId);
+    if (book == null) return;
+    await _repository.save(book.copyWith(currentPage: currentPage));
+    _load();
+  }
 }
 
 /// 本棚の本のリストを公開する provider。
