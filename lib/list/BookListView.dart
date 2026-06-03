@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sample/detail/BookDetail.dart';
 import 'package:sample/list/BookListItem.dart';
 import '../providers/book_list_provider.dart';
 
-/// 本棚画面（W3 で hive 経由のデータ駆動に変更）。
+/// 本棚画面（ListView 形式、hive 由来の `List<Book>` を表示）。
 ///
 /// W1: ListView + BookListItem（ダミー 7 件）
-/// W3: ListView + BookListItem（hive 由来の `List<Book>`、ダミー廃止、empty state 追加）
-///
-/// W3 で一度 GridView 化を試したが、本が少ない時に縦長カードが画面いっぱいに
-/// 広がって見づらかったため、W2 と同じ ListView 形式（横長カード）に戻した。
-/// 「本のタイトル・著者・出版社・進捗日付・詳細ボタン」を 1 行に並べる方が
-/// 情報密度として読みやすい。
+/// W3: hive 由来 + empty state
+/// W4: タップ時の遷移を Stack モーダル → Navigator.push に変更。
+///     selectedBookProvider への state セットも廃止し、直接 Navigator で
+///     BookDetail ページを開く。
 class BookListView extends ConsumerWidget {
   const BookListView({super.key});
 
@@ -32,8 +31,10 @@ class BookListView extends ConsumerWidget {
           return BookListItem(
             book: book,
             onPressed: () {
-              // 詳細モーダルを開く: 選択中の本を Riverpod state にセット
-              ref.read(selectedBookProvider.notifier).state = book;
+              // W4: 詳細ページに Navigator.push で遷移（Hero アニメ付き）
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => BookDetail(book: book)),
+              );
             },
           );
         },
@@ -41,7 +42,7 @@ class BookListView extends ConsumerWidget {
     );
   }
 
-  /// 本棚が空のときに表示する案内（W3 でダミー廃止 → 初回起動が空になるため追加）。
+  /// 本棚が空のときに表示する案内（W3 でダミー廃止 → 初回起動が空になるため）。
   Widget _emptyState() {
     return Container(
       color: Colors.white,
