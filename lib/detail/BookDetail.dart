@@ -5,7 +5,7 @@
 ///   - ChoiceChip でステータス変更（読みたい / 読書中 / 読了）
 ///   - flutter_rating_bar で ★評価（5 段階）
 ///   - TextField で進捗（currentPage）の編集
-///   - レビュー一覧 UI は次のコミット（W5 コミット 5）で追加する
+///   - レビュー一覧 + 「+ 追加」ボタン（ReviewEditPage へ Navigator.push）
 library;
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -13,8 +13,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sample/pages/ReviewEditPage.dart';
 import '../models/book.dart';
+import '../models/review.dart';
 import '../providers/book_list_provider.dart';
+import '../providers/review_list_provider.dart';
 
 class BookDetail extends ConsumerStatefulWidget {
   final Book book;
@@ -111,7 +114,6 @@ class _BookDetailState extends ConsumerState<BookDetail> {
     final book = books.where((b) => b.id == widget.book.id).firstOrNull;
 
     if (book == null) {
-      // 本が hive から削除された場合、自動でこのページを閉じる
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) Navigator.of(context).pop();
       });
@@ -157,6 +159,8 @@ class _BookDetailState extends ConsumerState<BookDetail> {
             if (book.totalPages != null) _progressEditor(book),
             const SizedBox(height: 16),
             _dateInfo(book),
+            const SizedBox(height: 24),
+            _reviewSection(book),
           ],
         ),
       ),
@@ -201,7 +205,6 @@ class _BookDetailState extends ConsumerState<BookDetail> {
     );
   }
 
-  /// ステータス変更 UI（W5）：ChoiceChip の横並び。
   Widget _statusEditor(Book book) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -232,7 +235,6 @@ class _BookDetailState extends ConsumerState<BookDetail> {
     );
   }
 
-  /// ★評価 UI（W5）：flutter_rating_bar。
   Widget _ratingEditor(Book book) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,7 +275,6 @@ class _BookDetailState extends ConsumerState<BookDetail> {
     );
   }
 
-  /// 進捗編集 UI（W5）：TextField で現在のページ数 + 「更新」ボタン。
   Widget _progressEditor(Book book) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,7 +311,6 @@ class _BookDetailState extends ConsumerState<BookDetail> {
     );
   }
 
-  /// 読書日付の表示エリア（読み始め / 読了）。編集はステータス変更時に自動。
   Widget _dateInfo(Book book) {
     if (book.startedAt == null && book.finishedAt == null) {
       return const SizedBox.shrink();
@@ -329,6 +329,78 @@ class _BookDetailState extends ConsumerState<BookDetail> {
           if (book.finishedAt != null)
             Text('読了: ${_formatDate(book.finishedAt!)}'),
         ],
+      ),
+    );
+  }
+
+  /// レビュー一覧 + 「追加」ボタン（W5 コミット 5 で追加）。
+  Widget _reviewSection(Book book) {
+    final reviews = ref.watch(reviewListProvider(book.id));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'レビュー',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: 8),
+            Text('(${reviews.length})',
+                style: const TextStyle(color: Colors.black54)),
+            const Spacer(),
+            TextButton.icon(
+              icon: const Icon(Icons.add),
+              label: const Text('追加'),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ReviewEditPage(bookId: book.id),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        if (reviews.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'まだレビューがありません',
+              style: TextStyle(color: Colors.black45),
+            ),
+          )
+        else
+          ...reviews.map((r) => _reviewTile(book.id, r)),
+      ],
+    );
+  }
+
+  Widget _reviewTile(String bookId, Review review) {
+    return Card(
+      child: ListTile(
+        title: Text(
+          review.content,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          review.updatedAt != null
+              ? '更新: ${_formatDate(review.updatedAt!)}'
+              : '作成: ${_formatDate(review.createdAt)}',
+          style: const TextStyle(fontSize: 11),
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  ReviewEditPage(bookId: bookId, existingReview: review),
+            ),
+          );
+        },
       ),
     );
   }
