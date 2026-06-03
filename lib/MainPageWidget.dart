@@ -1,46 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '/detail/BookDetail.dart';
 import '/list/BookListView.dart';
 import 'pages/SearchPage.dart';
-import 'providers/book_list_provider.dart';
 
-/// 本棚 + 詳細モーダル + 検索 FAB を組み合わせる司令塔。
+/// 本棚画面 + 検索 FAB を組み合わせる司令塔。
 ///
-/// W1: Stack の上に BookListView と BookDetail（条件付き）を載せる構造に。
-/// W2: Scaffold でラップして検索 FAB を追加し、Navigator.push で SearchPage
-///     に遷移できるようにした。
+/// W1〜W3: Stack で BookListView と BookDetail（条件付き）を重ねる構造
+/// W4: BookDetail を Navigator.push の独立ページに移したため、Stack を撤去。
+///     body は BookListView のみ、FAB で SearchPage に遷移、本棚タップで
+///     BookDetail に遷移（BookListView 内で Navigator.push）。
 ///
-/// なぜ Scaffold でラップしたか:
-/// - FAB を表示するには Scaffold が必要
-/// - 将来 AppBar や Drawer を入れる際にも基盤になる
-///
-/// なぜ Navigator.push（新しい画面）で SearchPage に遷移するか:
-/// - 検索画面は本棚画面とは独立した役割の画面
-/// - 標準的な「戻る」操作（Android の戻るボタン、iOS のスワイプ）で
-///   本棚画面に戻れるようにしたい
-/// - Flutter 特性として Navigator.push の使い方を体得する目的もある
-class MainPageWidget extends ConsumerWidget {
+/// state を持たなくなったので StatelessWidget に戻した（Riverpod の ref も
+/// 不要）。
+class MainPageWidget extends StatelessWidget {
   const MainPageWidget({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selectedBook = ref.watch(selectedBookProvider);
-
+  Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          const BookListView(),
-          if (selectedBook != null)
-            BookDetail(
-              book: selectedBook,
-              closeAction: () {
-                // モーダルを閉じる: 選択を null に戻す
-                ref.read(selectedBookProvider.notifier).state = null;
-              },
-            ),
-        ],
-      ),
+      body: const BookListView(),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           // W2: 検索画面を新しい画面として開く（Navigator.push）。
