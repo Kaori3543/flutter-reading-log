@@ -8,6 +8,9 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/book.dart';
 import '../services/book_repository.dart';
+import '../services/review_repository.dart';
+import 'book_view_settings_provider.dart';
+import 'review_list_provider.dart';
 
 /// BookRepository を共有する Provider。
 ///
@@ -26,11 +29,15 @@ final bookRepositoryProvider = Provider<BookRepository>((ref) {
 /// - ダミー 7 件の static リスト → BookRepository 経由の hive データ
 /// - add / update / remove の各操作で hive に書き込み + state 同期
 class BookListNotifier extends StateNotifier<List<Book>> {
-  BookListNotifier(this._repository) : super([]) {
+  BookListNotifier(this._repository, this._reviewRepository) : super([]) {
     _load();
   }
 
   final BookRepository _repository;
+
+  /// 本削除時に紐づくレビューも消すために保持（W6 で追加）。
+  /// null 許容なのは、レビュー機能を必要としないテスト等で省略できるように。
+  final ReviewRepository? _reviewRepository;
 
   /// hive から本リストを読み込んで state にセット。
   /// 初期化時 + 変更操作の後に呼ぶ。
@@ -50,9 +57,13 @@ class BookListNotifier extends StateNotifier<List<Book>> {
     _load();
   }
 
-  /// 本を削除。
+  /// 本を削除（W6 で拡張）。
+  ///
+  /// 紐づくレビューがあれば一緒に削除する。`ReviewRepository` を保持して
+  /// いない場合（テスト等）は本データのみ削除する。
   Future<void> remove(String id) async {
     await _repository.remove(id);
+    await _reviewRepository?.removeByBookId(id);
     _load();
   }
 
@@ -134,6 +145,58 @@ class BookListNotifier extends StateNotifier<List<Book>> {
 final bookListProvider =
     StateNotifierProvider<BookListNotifier, List<Book>>((ref) {
   final repository = ref.watch(bookRepositoryProvider);
-  return BookListNotifier(repository);
+  final reviewRepository = ref.watch(reviewRepositoryProvider);
+  return BookListNotifier(repository, reviewRepository);
 });
+
+/// 本棚の表示設定（タブ/評価フィルタ/ソート）を適用した本リストを返す純粋関数。
+///
+/// W6 で追加。UI 側は `bookListProvider` と `bookViewSettingsProvider` を
+/// 両方 watch し、本関数で組み合わせる。純粋関数なのでテストしやすい。
+///
+/// 適用順:
+///   1. ステータスフィルタ（タブ）
+///   2. 評価フィルタ（minRating 以上）
+///   3. ソート
+List<Book> applyBookView(List<Book> books, BookViewSettings settings) {
+  Iterable<Book> result = books;
+
+  if (settings.statusFilter != null) {
+    result = result.where((b) => b.status == settings.statusFilter);
+  }
+  if (settings.minRating > 0.0) {
+    result = result.where((b) => b.rating >= settings.minRating);
+  }
+
+  final list = result.toList();
+  switch (settings.sort) {
+    case BookSort.addedDesc:
+      // id を時刻ベースで生成しているため、id 降順 ≒ 追加日降順
+      list.sort((a, b) => b.id.compareTo(a.id));
+      break;
+    case BookSort.ratingDesc:
+      list.sort((a, b) {
+        final byRating = b.rating.compareTo(a.rating);
+        if (byRating != 0) return byRating;
+        // 同点の場合はタイトル昇順で安定化
+        return a.title.compareTo(b.title);
+      });
+      break;
+    case BookSort.titleAsc:
+      list.sort((a, b) => a.title.compareTo(b.title));
+      break;
+    case BookSort.finishedDesc:
+      list.sort((a, b) {
+        // 読了日未設定は末尾に。
+        final fa = a.finishedAt;
+        final fb = b.finishedAt;
+        if (fa == null && fb == null) return a.title.compareTo(b.title);
+        if (fa == null) return 1;
+        if (fb == null) return -1;
+        return fb.compareTo(fa);
+      });
+      break;
+  }
+  return list;
+}
 
