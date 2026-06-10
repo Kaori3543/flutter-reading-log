@@ -145,6 +145,83 @@ void main() {
       expect(books[3].coverImageUrl, isNull);
     });
 
+    test('booksGenreId を Book.genreId にセットする、genre は未取得（W7）', () {
+      // 検索 API は booksGenreId（例: "001004009"）しか返さない。
+      // 人間可読な genre 名は本登録時に BooksGenre/Search API で取得する設計。
+      // ここではパース段階で id だけ保持できることを確認。
+      const mockJson = '''
+{
+  "Items": [
+    {
+      "Item": {
+        "title": "詩集",
+        "author": "A",
+        "isbn": "1",
+        "booksGenreId": "001004009"
+      }
+    },
+    {
+      "Item": {
+        "title": "ジャンルなし",
+        "author": "B",
+        "isbn": "2"
+      }
+    },
+    {
+      "Item": {
+        "title": "空文字",
+        "author": "C",
+        "isbn": "3",
+        "booksGenreId": ""
+      }
+    }
+  ]
+}
+''';
+
+      final books = RakutenApi.parseSearchResponse(mockJson);
+
+      expect(books[0].genreId, '001004009');
+      expect(books[0].genre, isNull); // 名前は別途取得
+      expect(books[1].genreId, isNull);
+      expect(books[1].genre, isNull);
+      expect(books[2].genreId, isNull);
+    });
+
+    test('parseGenreNameResponse は current.booksGenreName を返す（W7）', () {
+      // BooksGenre/Search API のレスポンス形式:
+      //   { "parents": [...], "current": {"booksGenreId": "...", "booksGenreName": "..."}, "children": [...] }
+      const mockJson = '''
+{
+  "parents": [
+    {"parent": {"booksGenreId": "001", "booksGenreName": "本"}},
+    {"parent": {"booksGenreId": "001004", "booksGenreName": "小説・エッセイ"}}
+  ],
+  "current": {
+    "booksGenreId": "001004009",
+    "booksGenreName": "詩・詩集"
+  },
+  "children": []
+}
+''';
+
+      final name = RakutenApi.parseGenreNameResponse(mockJson);
+      expect(name, '詩・詩集');
+    });
+
+    test('parseGenreNameResponse は current が無い場合 null を返す', () {
+      const mockJson = '{"parents": [], "children": []}';
+      final name = RakutenApi.parseGenreNameResponse(mockJson);
+      expect(name, isNull);
+    });
+
+    test('parseGenreNameResponse は booksGenreName が空文字の場合 null を返す', () {
+      const mockJson =
+          '{"current": {"booksGenreId": "x", "booksGenreName": ""}}';
+      final name = RakutenApi.parseGenreNameResponse(mockJson);
+      expect(name, isNull);
+    });
+
     test('検索結果の本のステータスは全て wantToRead', () {
       const mockJson = '''
 {

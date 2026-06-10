@@ -23,6 +23,12 @@ import 'package:sample/models/book.dart';
 const _baseUrl =
     'https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404';
 
+/// 楽天 Books ジャンル検索 API のエンドポイント（v20121128）。
+/// W7 で追加。booksGenreId → 人間可読なジャンル名の変換に使う。
+/// 仕様: https://webservice.rakuten.co.jp/documentation/books-genre-search
+const _genreUrl =
+    'https://openapi.rakuten.co.jp/services/api/BooksGenre/Search/20121128';
+
 /// 楽天 API 呼び出し時のエラー。
 ///
 /// 通信エラー・サーバエラー・applicationId/accessKey 未設定など、API 呼び出し全般の
@@ -44,6 +50,13 @@ class RakutenApi {
   final String _applicationId;
   final String _accessKey;
 
+  /// 一度取得した booksGenreId → ジャンル名のキャッシュ（W7）。
+  ///
+  /// 楽天 API はレート制限（1 リクエスト/秒）があるため、同じ ID に対して
+  /// 何度も BooksGenre/Search を叩かないようにメモリに保持する。
+  /// インスタンスのライフサイクル内のみ有効（アプリ再起動でクリア）。
+  final Map<String, String> _genreNameCache = {};
+
   RakutenApi({
     http.Client? client,
     String? applicationId,
@@ -53,6 +66,53 @@ class RakutenApi {
             applicationId ?? const String.fromEnvironment('RAKUTEN_APP_ID'),
         _accessKey =
             accessKey ?? const String.fromEnvironment('RAKUTEN_ACCESS_KEY');
+
+  /// booksGenreId（例 "001004009"）からジャンル名を取得する（W7）。
+  ///
+  /// 楽天 BooksGenre/Search API を叩いて `current.booksGenreName` を返す。
+  /// 同じ id は 2 回目以降キャッシュから返す。
+  /// applicationId / accessKey 未設定時や通信失敗時は null を返す（呼び出し側で
+  /// genre = null として登録できるよう、本登録フローを止めない設計）。
+  Future<String?> getGenreName(String booksGenreId) async {
+    if (booksGenreId.isEmpty) return null;
+
+    // キャッシュヒット → 即返却
+    final cached = _genreNameCache[booksGenreId];
+    if (cached != null) return cached;
+
+    if (_applicationId.isEmpty || _accessKey.isEmpty) return null;
+
+    final uri = Uri.parse(_genreUrl).replace(queryParameters: {
+      'applicationId': _applicationId,
+      'accessKey': _accessKey,
+      'booksGenreId': booksGenreId,
+      'format': 'json',
+    });
+
+    try {
+      final response = await _client.get(uri);
+      if (response.statusCode != 200) return null;
+      final name = parseGenreNameResponse(response.body);
+      if (name != null) {
+        _genreNameCache[booksGenreId] = name;
+      }
+      return name;
+    } catch (_) {
+      // 通信エラー・パース失敗は null として扱う（本登録は続行可能）
+      return null;
+    }
+  }
+
+  /// BooksGenre/Search のレスポンス JSON から `current.booksGenreName` を抽出する。
+  /// テスト容易性のため public + static にした。
+  static String? parseGenreNameResponse(String body) {
+    final json = jsonDecode(body) as Map<String, dynamic>;
+    final current = json['current'] as Map<String, dynamic>?;
+    if (current == null) return null;
+    final name = current['booksGenreName'] as String?;
+    if (name == null || name.isEmpty) return null;
+    return name;
+  }
 
   /// 楽天 Books API でタイトル検索する。
   ///
@@ -128,6 +188,12 @@ class RakutenApi {
         // 検索結果は「読みたい候補」なので wantToRead を初期値に。
         // 実際に本棚に登録する時はユーザーがステータスを選び直す（W3）。
         status: BookStatus.wantToRead,
+        // W7: 検索結果には booksGenreId（例: "001004009"）だけが入る。
+        // 人間可読なジャンル名は本登録時に getGenreName で別途取得して
+        // Book.genre にセットする（ここでは genre は null のまま）。
+        genreId: (item['booksGenreId'] as String?)?.isNotEmpty == true
+            ? item['booksGenreId'] as String
+            : null,
       );
     }).toList();
   }

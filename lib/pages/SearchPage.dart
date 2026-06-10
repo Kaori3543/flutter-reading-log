@@ -74,12 +74,27 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     if (confirmed != true) return;
 
+    // W7: ジャンル ID があれば API で名前を取得して Book.genre にセット。
+    // 通信失敗や ID 解決失敗時は genre = null のまま登録（本登録は止めない）。
+    Book toSave = book;
+    final gid = book.genreId;
+    if (gid != null && gid.isNotEmpty) {
+      try {
+        final name = await _api.getGenreName(gid);
+        if (name != null) {
+          toSave = book.copyWith(genre: name);
+        }
+      } catch (_) {
+        // 例外は黙殺 — ジャンル名取れなくても本は登録できる
+      }
+    }
+
     // hive に保存（provider 経由）
-    await notifier.add(book);
+    await notifier.add(toSave);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('「${book.title}」を本棚に追加しました')),
+      SnackBar(content: Text('「${toSave.title}」を本棚に追加しました')),
     );
   }
 
