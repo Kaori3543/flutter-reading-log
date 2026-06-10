@@ -53,6 +53,24 @@ class Book {
   /// 読了した日
   final DateTime? finishedAt;
 
+  /// ジャンル名（W7 で追加）。
+  ///
+  /// 表示・統計集計で使う人間可読なジャンル名（例: "詩・詩集"）。
+  /// 楽天 Books API は本検索のレスポンスでジャンル ID（[genreId]）しか
+  /// 返さないため、本登録時に BooksGenre/Search API で ID → 名前変換した
+  /// 結果を保存する。
+  /// W7 以前に登録された本や ID 解決に失敗した本は null。
+  /// null の本は統計のジャンル別集計から除外。
+  final String? genre;
+
+  /// 楽天 Books API のジャンル ID（W7 で追加）。
+  ///
+  /// 例: "001004009"。階層化された数字文字列。
+  /// 検索結果からの本にはこの ID が入っており、本登録時に
+  /// [RakutenApi.getGenreName] で名前を引いて [genre] にセットする。
+  /// W7 以前に登録された本は null。
+  final String? genreId;
+
   const Book({
     required this.id,
     this.isbn,
@@ -66,6 +84,8 @@ class Book {
     this.rating = 0.0,
     this.startedAt,
     this.finishedAt,
+    this.genre,
+    this.genreId,
   });
 
   /// 一部のフィールドだけ更新した新しい Book を返す。
@@ -83,6 +103,8 @@ class Book {
     double? rating,
     DateTime? startedAt,
     DateTime? finishedAt,
+    String? genre,
+    String? genreId,
   }) {
     return Book(
       id: id ?? this.id,
@@ -97,6 +119,8 @@ class Book {
       rating: rating ?? this.rating,
       startedAt: startedAt ?? this.startedAt,
       finishedAt: finishedAt ?? this.finishedAt,
+      genre: genre ?? this.genre,
+      genreId: genreId ?? this.genreId,
     );
   }
 
@@ -119,6 +143,8 @@ class Book {
       'rating': rating,
       'startedAt': startedAt?.toIso8601String(),
       'finishedAt': finishedAt?.toIso8601String(),
+      'genre': genre,
+      'genreId': genreId,
     };
   }
 
@@ -148,6 +174,8 @@ class Book {
       finishedAt: map['finishedAt'] != null
           ? DateTime.parse(map['finishedAt'] as String)
           : null,
+      genre: map['genre'] as String?,
+      genreId: map['genreId'] as String?,
     );
   }
 
