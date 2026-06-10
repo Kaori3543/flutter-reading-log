@@ -7,8 +7,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sample/models/book.dart';
+import 'package:sample/models/review.dart';
 import 'package:sample/providers/book_list_provider.dart';
+import 'package:sample/providers/review_list_provider.dart';
 import 'package:sample/services/book_repository.dart';
+import 'package:sample/services/review_repository.dart';
 
 /// テスト用の in-memory な BookRepository 実装。
 /// hive を使わずに動作するため、テストが軽量で安定する。
@@ -43,11 +46,55 @@ class _FakeBookRepository implements BookRepository {
   }
 }
 
+/// テスト用の in-memory な ReviewRepository 実装。
+/// W6 で bookListProvider が reviewRepositoryProvider を watch するように
+/// なったため、ここでもダミーを用意する。
+/// `removeByBookId` の呼び出し記録を残しておき、レビュー連動削除のテストで
+/// 検証する。
+class _FakeReviewRepository implements ReviewRepository {
+  final Map<String, Review> _store = {};
+  final List<String> removeByBookIdCalls = [];
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  List<Review> getByBookId(String bookId) =>
+      _store.values.where((r) => r.bookId == bookId).toList();
+
+  @override
+  Review? findById(String id) => _store[id];
+
+  @override
+  Future<void> save(Review review) async {
+    _store[review.id] = review;
+  }
+
+  @override
+  Future<void> remove(String id) async {
+    _store.remove(id);
+  }
+
+  @override
+  Future<void> removeByBookId(String bookId) async {
+    removeByBookIdCalls.add(bookId);
+    _store.removeWhere((_, r) => r.bookId == bookId);
+  }
+
+  @override
+  Future<void> clear() async {
+    _store.clear();
+  }
+}
+
 /// テスト用 ProviderContainer を生成するヘルパー。
-ProviderContainer makeContainer() {
+/// W6: reviewRepositoryProvider も override する。
+ProviderContainer _makeContainer({_FakeReviewRepository? reviewRepo}) {
   final container = ProviderContainer(
     overrides: [
       bookRepositoryProvider.overrideWithValue(_FakeBookRepository()),
+      reviewRepositoryProvider
+          .overrideWithValue(reviewRepo ?? _FakeReviewRepository()),
     ],
   );
   return container;
@@ -56,14 +103,14 @@ ProviderContainer makeContainer() {
 void main() {
   group('bookListProvider', () {
     test('初期状態は空（hive が空 = W3 でダミー廃止のため）', () {
-      final container = makeContainer();
+      final container = _makeContainer();
       addTearDown(container.dispose);
 
       expect(container.read(bookListProvider), isEmpty);
     });
 
     test('add で本が本棚に追加される', () async {
-      final container = makeContainer();
+      final container = _makeContainer();
       addTearDown(container.dispose);
 
       const book = Book(id: 'b1', title: 'Test', author: 'Author');
@@ -76,7 +123,7 @@ void main() {
     });
 
     test('remove で本が削除される', () async {
-      final container = makeContainer();
+      final container = _makeContainer();
       addTearDown(container.dispose);
 
       final notifier = container.read(bookListProvider.notifier);
@@ -88,7 +135,7 @@ void main() {
     });
 
     test('update で同じ id の本のフィールドが上書きされる', () async {
-      final container = makeContainer();
+      final container = _makeContainer();
       addTearDown(container.dispose);
 
       final notifier = container.read(bookListProvider.notifier);
@@ -101,7 +148,7 @@ void main() {
     });
 
     test('exists は登録済みなら true、未登録なら false', () async {
-      final container = makeContainer();
+      final container = _makeContainer();
       addTearDown(container.dispose);
 
       final notifier = container.read(bookListProvider.notifier);
@@ -110,6 +157,20 @@ void main() {
       expect(notifier.exists('b1'), isTrue);
       expect(notifier.exists('b2'), isFalse);
     });
-  });
 
+    test('remove は ReviewRepository.removeByBookId を呼んで紐づくレビューも削除する',
+        () async {
+      // W6 で追加。本削除時のレビュー連動削除（孤立データ防止）。
+      final reviewRepo = _FakeReviewRepository();
+      final container = _makeContainer(reviewRepo: reviewRepo);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(bookListProvider.notifier);
+      await notifier.add(const Book(id: 'b1', title: 'T', author: 'A'));
+
+      await notifier.remove('b1');
+
+      expect(reviewRepo.removeByBookIdCalls, ['b1']);
+    });
+  });
 }
