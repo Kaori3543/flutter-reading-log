@@ -151,6 +151,23 @@ class _BookDetailState extends ConsumerState<BookDetail> {
               '${book.author}${book.publisher != null ? "（${book.publisher}）" : ""}',
               style: const TextStyle(fontSize: 14, color: Colors.black54),
             ),
+            if (book.genre != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(Icons.label_outline,
+                      size: 14, color: Colors.black45),
+                  const SizedBox(width: 4),
+                  Text(
+                    book.genre!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.black45,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 20),
             _statusEditor(book),
             const SizedBox(height: 16),
