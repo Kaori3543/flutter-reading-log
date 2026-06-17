@@ -23,6 +23,16 @@ import 'package:sample/models/book.dart';
 const _baseUrl =
     'https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404';
 
+/// BooksGenre/Search レスポンスから取り出すジャンル情報（W9）。
+///
+/// `getGenreName` が複数 ID から「最も深い階層」のジャンル名を選ぶために
+/// 階層レベル（`genreLevel`）を一緒に持ち回る。
+class _GenreInfo {
+  final String name;
+  final int level;
+  const _GenreInfo({required this.name, required this.level});
+}
+
 /// 発見タブのランキング表示で使う、本 + あらすじの組（W8）。
 ///
 /// 楽天 API のレスポンスから抽出した `itemCaption`（あらすじテキスト）は
@@ -89,42 +99,80 @@ class RakutenApi {
   Future<String?> getGenreName(String booksGenreId) async {
     if (booksGenreId.isEmpty) return null;
 
-    // キャッシュヒット → 即返却
+    // キャッシュキーは raw 全体（複数 ID 文字列も含めて 1 度の検索でキャッシュ）。
     final cached = _genreNameCache[booksGenreId];
     if (cached != null) return cached;
 
     if (_applicationId.isEmpty || _accessKey.isEmpty) return null;
 
-    final uri = Uri.parse(_genreUrl).replace(queryParameters: {
-      'applicationId': _applicationId,
-      'accessKey': _accessKey,
-      'booksGenreId': booksGenreId,
-      'format': 'json',
-    });
+    // 楽天の booksGenreId は `/` 区切りで複数ジャンルが入る場合がある
+    // （例: "001008027/001006018002"）。各 ID で API を叩き、その中で
+    // 最も `genreLevel` の大きい（最も具体的な）名前を採用する。
+    // 「その他」など上位カテゴリの汎用名を避けて、ユーザーに意味のある
+    // ジャンル名を見せるための工夫。
+    final ids = booksGenreId
+        .split('/')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (ids.isEmpty) return null;
 
-    try {
-      final response = await _client.get(uri);
-      if (response.statusCode != 200) return null;
-      final name = parseGenreNameResponse(response.body);
-      if (name != null) {
-        _genreNameCache[booksGenreId] = name;
+    String? bestName;
+    int bestLevel = -1;
+    for (final id in ids) {
+      // 個別 ID もキャッシュ（同じ ID が別の本でも出てくる前提）
+      final perIdCached = _genreNameCache['_single:$id'];
+      _GenreInfo? info;
+      if (perIdCached != null) {
+        info = _GenreInfo(name: perIdCached, level: -1);
+      } else {
+        try {
+          final uri = Uri.parse(_genreUrl).replace(queryParameters: {
+            'applicationId': _applicationId,
+            'accessKey': _accessKey,
+            'booksGenreId': id,
+            'format': 'json',
+          });
+          final response = await _client.get(uri);
+          if (response.statusCode != 200) continue;
+          info = _parseGenreInfo(response.body);
+          if (info != null) _genreNameCache['_single:$id'] = info.name;
+        } catch (_) {
+          continue;
+        }
       }
-      return name;
-    } catch (_) {
-      // 通信エラー・パース失敗は null として扱う（本登録は続行可能）
-      return null;
+      if (info == null) continue;
+      // 個別キャッシュは level を持たないので、その場合は最後の API レスポンスの
+      // level を信用しきれないが、未取得 ID が混じったケースの fallback として
+      // 機能する（level=-1 はまだ何も決まってない場合のみ採用）。
+      if (info.level > bestLevel) {
+        bestName = info.name;
+        bestLevel = info.level;
+      }
     }
+
+    if (bestName != null) {
+      _genreNameCache[booksGenreId] = bestName;
+    }
+    return bestName;
   }
 
   /// BooksGenre/Search のレスポンス JSON から `current.booksGenreName` を抽出する。
-  /// テスト容易性のため public + static にした。
+  /// テスト互換のため public + static（W9 で内部実装は _parseGenreInfo に委譲）。
   static String? parseGenreNameResponse(String body) {
+    return _parseGenreInfo(body)?.name;
+  }
+
+  /// BooksGenre/Search のレスポンスから `(name, level)` を取り出す（W9）。
+  /// 複数 ID 解決時に最も深い階層の名前を選ぶために level も必要。
+  static _GenreInfo? _parseGenreInfo(String body) {
     final json = jsonDecode(body) as Map<String, dynamic>;
     final current = json['current'] as Map<String, dynamic>?;
     if (current == null) return null;
     final name = current['booksGenreName'] as String?;
     if (name == null || name.isEmpty) return null;
-    return name;
+    final level = (current['genreLevel'] as num?)?.toInt() ?? 0;
+    return _GenreInfo(name: name, level: level);
   }
 
   /// 楽天 Books API でタイトル検索する。
@@ -198,6 +246,51 @@ class RakutenApi {
       'applicationId': _applicationId,
       'accessKey': _accessKey,
       'booksGenreId': booksGenreId,
+      'sort': 'sales',
+      'format': 'json',
+      'hits': '$hits',
+    });
+
+    try {
+      final response = await _client.get(uri);
+      if (response.statusCode != 200) return const [];
+      final items = parseRankingResponse(response.body);
+      _rankingCache[cacheKey] = items;
+      return items;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// 著者名で楽天 Books を検索し、ランキング形式（RankingItem）で返す（W9）。
+  ///
+  /// 「あなたへのおすすめ」でお気に入り著者の他作品を提示するために使う。
+  /// 楽天 API は author パラメータをサポートしているのでそのまま渡す。
+  /// 売れている順（sort=sales）で取得し、ランキングカードと同じ UI を使い回す。
+  ///
+  /// メモリキャッシュは searchRanking と同じ _rankingCache を共用
+  /// （キーに `"author:{name}"` プレフィックスを付けて booksGenreId と衝突回避）。
+  Future<List<RankingItem>> searchByAuthor({
+    required String author,
+    int hits = 20,
+  }) async {
+    if (_applicationId.isEmpty || _accessKey.isEmpty) return const [];
+    if (author.isEmpty) return const [];
+
+    // W9: 楽天 Books の author は「著者/翻訳者」連結で返ってくるため、
+    // 主著者だけを残してから検索する。すでに整形済みの文字列が渡ってきた
+    // 場合は無加工で通過する（区切り文字を含まなければそのまま）。
+    final normalized = author.split(RegExp(r'[/／、,]')).first.trim();
+    if (normalized.isEmpty) return const [];
+
+    final cacheKey = 'author:$normalized/$hits';
+    final cached = _rankingCache[cacheKey];
+    if (cached != null) return cached;
+
+    final uri = Uri.parse(_baseUrl).replace(queryParameters: {
+      'applicationId': _applicationId,
+      'accessKey': _accessKey,
+      'author': normalized,
       'sort': 'sales',
       'format': 'json',
       'hits': '$hits',
