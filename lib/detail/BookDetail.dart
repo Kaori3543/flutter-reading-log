@@ -297,8 +297,31 @@ class _BookDetailState extends ConsumerState<BookDetail> {
               style: const TextStyle(color: Colors.black54),
             ),
             const Spacer(),
-            // W9: お気に入り著者スイッチ。ON にすると、この本の主著者が
-            // 「お気に入り著者」として統計画面・ホームタブのおすすめに登場する。
+            // W11: お気に入り本スイッチ。♥アイコンで「本そのもの」を mark する。
+            // 本棚カードの右上 ♥ マーク、本棚の「♡だけ」フィルタ、ホームタブの
+            // 「お気に入りの本」セクションに反映される。
+            Tooltip(
+              message: book.isFavorite
+                  ? 'お気に入りから外す'
+                  : 'この本をお気に入りに追加',
+              child: IconButton(
+                icon: Icon(
+                  book.isFavorite
+                      ? Icons.favorite
+                      : Icons.favorite_border,
+                  color: book.isFavorite ? Colors.pink : Colors.black45,
+                ),
+                onPressed: () {
+                  ref
+                      .read(bookListProvider.notifier)
+                      .toggleFavorite(book.id);
+                },
+              ),
+            ),
+            // W9: お気に入り著者スイッチ。person アイコンで「著者」を mark する。
+            // ON にすると、この本の主著者が「お気に入り著者」として統計画面・
+            // ホームタブのおすすめに登場する。
+            // W11 で本のお気に入り♥と並ぶため、アイコンを person 系に変更。
             Tooltip(
               message: book.isFavoriteAuthor
                   ? 'お気に入り著者を解除'
@@ -306,8 +329,8 @@ class _BookDetailState extends ConsumerState<BookDetail> {
               child: IconButton(
                 icon: Icon(
                   book.isFavoriteAuthor
-                      ? Icons.favorite
-                      : Icons.favorite_border,
+                      ? Icons.person
+                      : Icons.person_outline,
                   color: book.isFavoriteAuthor ? Colors.pink : Colors.black45,
                 ),
                 onPressed: () {
