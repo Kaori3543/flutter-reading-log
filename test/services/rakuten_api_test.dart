@@ -221,6 +221,74 @@ void main() {
       final name = RakutenApi.parseGenreNameResponse(mockJson);
       expect(name, isNull);
     });
+  });
+
+  group('RakutenApi.parseRankingResponse (W8)', () {
+    test('itemCaption も含めて RankingItem として取り出す', () {
+      const mockJson = '''
+{
+  "Items": [
+    {
+      "Item": {
+        "title": "ONE PIECE 115",
+        "author": "尾田 栄一郎",
+        "isbn": "9784088847900",
+        "booksGenreId": "001001",
+        "itemCaption": "麦わらの一味の冒険..."
+      }
+    },
+    {
+      "Item": {
+        "title": "あらすじ無し",
+        "author": "B",
+        "isbn": "2"
+      }
+    },
+    {
+      "Item": {
+        "title": "空あらすじ",
+        "author": "C",
+        "isbn": "3",
+        "itemCaption": ""
+      }
+    }
+  ]
+}
+''';
+
+      final items = RakutenApi.parseRankingResponse(mockJson);
+
+      expect(items, hasLength(3));
+      expect(items[0].book.title, 'ONE PIECE 115');
+      expect(items[0].book.genreId, '001001');
+      expect(items[0].caption, '麦わらの一味の冒険...');
+      expect(items[1].caption, isNull);
+      expect(items[2].caption, isNull); // 空文字も null 扱い
+    });
+
+    test('Items が空でも空のリストを返す', () {
+      const mockJson = '{"Items": []}';
+      final items = RakutenApi.parseRankingResponse(mockJson);
+      expect(items, isEmpty);
+    });
+
+    test('順位はリストの順序に対応する（先頭が 1 位）', () {
+      // parseRankingResponse 自体は rank を返さない（リストの順序がそのまま順位）。
+      // 楽天 API のレスポンスが売れている順で並んでいることを前提にしている。
+      const mockJson = '''
+{
+  "Items": [
+    {"Item": {"title": "1位の本", "author": "A", "isbn": "1"}},
+    {"Item": {"title": "2位の本", "author": "B", "isbn": "2"}},
+    {"Item": {"title": "3位の本", "author": "C", "isbn": "3"}}
+  ]
+}
+''';
+
+      final items = RakutenApi.parseRankingResponse(mockJson);
+      expect(items.map((r) => r.book.title).toList(),
+          ['1位の本', '2位の本', '3位の本']);
+    });
 
     test('検索結果の本のステータスは全て wantToRead', () {
       const mockJson = '''

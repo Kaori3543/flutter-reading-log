@@ -4,12 +4,14 @@
 /// W7: 機能ごとにページを分け、BottomNavigationBar で切替えるようリファクタ。
 ///     - 本棚: BookshelfPage（旧 MainPageWidget の本棚 UI を移動）
 ///     - 統計: StatsPage（新規）
-///     IndexedStack で両方のページの State（タブ選択や TabController）を
-///     切替後も保持する。
+/// W8: 発見タブを追加（DiscoverPage）。楽天 Books の売れ筋ランキングを
+///     ジャンル別に表示し、本棚に取り込めるようにした。
+/// IndexedStack で 3 ページの State（TabController や Future）を保持する。
 library;
 
 import 'package:flutter/material.dart';
 import 'pages/BookshelfPage.dart';
+import 'pages/DiscoverPage.dart';
 import 'pages/StatsPage.dart';
 
 class MainPageWidget extends StatefulWidget {
@@ -24,6 +26,7 @@ class _MainPageWidgetState extends State<MainPageWidget> {
 
   static const _pages = [
     BookshelfPage(),
+    DiscoverPage(),
     StatsPage(),
   ];
 
@@ -42,6 +45,11 @@ class _MainPageWidgetState extends State<MainPageWidget> {
             icon: Icon(Icons.menu_book_outlined),
             selectedIcon: Icon(Icons.menu_book),
             label: '本棚',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.explore_outlined),
+            selectedIcon: Icon(Icons.explore),
+            label: '発見',
           ),
           NavigationDestination(
             icon: Icon(Icons.bar_chart_outlined),
