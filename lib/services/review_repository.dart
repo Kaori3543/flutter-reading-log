@@ -34,6 +34,14 @@ class ReviewRepository {
     return list;
   }
 
+  /// 全レビューを取得する（W11 で追加）。
+  /// 本棚タブの全文検索でレビュー本文も対象にするときに使う。
+  List<Review> getAll() {
+    return _box.values
+        .map((m) => Review.fromMap(Map<String, dynamic>.from(m)))
+        .toList();
+  }
+
   /// 1 件取得（id 指定）。存在しなければ null。
   Review? findById(String id) {
     final m = _box.get(id);

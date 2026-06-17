@@ -1,14 +1,10 @@
-/// 本棚画面（W7 で MainPageWidget から切り出し）。
+/// 本棚画面（W7 で MainPageWidget から切り出し、W11 で全文検索を追加）。
 ///
-/// 以前 MainPageWidget が直接持っていた以下の UI を担当する:
-///   - AppBar（タイトル「本棚」+ 並び替え PopupMenuButton）
-///   - TabBar（全て / 読みたい / 読書中 / 読了）
-///   - 評価フィルタ Chip 帯
-///   - 本棚一覧（BookListView）
-///   - 検索 FAB
-///
-/// W7 では MainPageWidget が BottomNavigationBar に変わり、本棚と統計の
-/// 切替の親になったため、本棚側のロジックを独立ページに移した。
+/// W7: AppBar + TabBar + 評価 Chip 帯 + BookListView + 検索 FAB（楽天 API）
+/// W11:
+///   - AppBar 右側に 🔍 検索アイコン → タップで AppBar title が TextField に
+///     切り替わり、本棚内の全文検索ができる
+///   - 評価 Chip 帯に「♡だけ」を追加
 library;
 
 import 'package:flutter/material.dart';
@@ -57,6 +53,10 @@ class _BookshelfPageState extends ConsumerState<BookshelfPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
+  /// 検索バーの表示状態（W11）。
+  bool _isSearching = false;
+  final _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -68,6 +68,7 @@ class _BookshelfPageState extends ConsumerState<BookshelfPage>
   void dispose() {
     _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -77,38 +78,88 @@ class _BookshelfPageState extends ConsumerState<BookshelfPage>
     ref.read(bookViewSettingsProvider.notifier).setStatusFilter(status);
   }
 
+  /// 検索モードに入る / 出る。
+  void _toggleSearchMode() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        _searchController.clear();
+        ref.read(bookViewSettingsProvider.notifier).setSearchQuery('');
+      }
+    });
+  }
+
+  void _onSearchChanged(String query) {
+    ref.read(bookViewSettingsProvider.notifier).setSearchQuery(query);
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(bookViewSettingsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('本棚'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          PopupMenuButton<BookSort>(
-            icon: const Icon(Icons.sort),
-            tooltip: '並び替え',
-            initialValue: settings.sort,
-            onSelected: (sort) =>
-                ref.read(bookViewSettingsProvider.notifier).setSort(sort),
-            itemBuilder: (context) => BookSort.values
-                .map((s) => PopupMenuItem(
-                      value: s,
-                      child: Row(
-                        children: [
-                          if (settings.sort == s)
-                            const Icon(Icons.check, size: 16)
-                          else
-                            const SizedBox(width: 16),
-                          const SizedBox(width: 8),
-                          Text(s.label),
-                        ],
-                      ),
-                    ))
-                .toList(),
-          ),
-        ],
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                onChanged: _onSearchChanged,
+                decoration: const InputDecoration(
+                  hintText: 'タイトル / 著者 / 出版社 / レビューを検索',
+                  border: InputBorder.none,
+                ),
+              )
+            : const Text('本棚'),
+        leading: _isSearching
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: '検索を終了',
+                onPressed: _toggleSearchMode,
+              )
+            : null,
+        actions: _isSearching
+            ? [
+                if (_searchController.text.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.clear),
+                    tooltip: '検索クエリをクリア',
+                    onPressed: () {
+                      _searchController.clear();
+                      _onSearchChanged('');
+                      setState(() {});
+                    },
+                  ),
+              ]
+            : [
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  tooltip: '本棚内を検索',
+                  onPressed: _toggleSearchMode,
+                ),
+                PopupMenuButton<BookSort>(
+                  icon: const Icon(Icons.sort),
+                  tooltip: '並び替え',
+                  initialValue: settings.sort,
+                  onSelected: (sort) =>
+                      ref.read(bookViewSettingsProvider.notifier).setSort(sort),
+                  itemBuilder: (context) => BookSort.values
+                      .map((s) => PopupMenuItem(
+                            value: s,
+                            child: Row(
+                              children: [
+                                if (settings.sort == s)
+                                  const Icon(Icons.check, size: 16)
+                                else
+                                  const SizedBox(width: 16),
+                                const SizedBox(width: 8),
+                                Text(s.label),
+                              ],
+                            ),
+                          ))
+                      .toList(),
+                ),
+              ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(96),
           child: Column(
@@ -149,23 +200,55 @@ class _BookshelfPageState extends ConsumerState<BookshelfPage>
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
-          children: _ratingChoices.map((c) {
-            final selected = settings.minRating == c.minRating;
-            return Padding(
+          children: [
+            // ♡だけフィルタ（W11）。評価フィルタの前に置く。
+            Padding(
               padding: const EdgeInsets.only(right: 6),
-              child: ChoiceChip(
-                label: Text(c.label),
-                selected: selected,
-                onSelected: (_) {
-                  if (!selected) {
-                    ref
-                        .read(bookViewSettingsProvider.notifier)
-                        .setMinRating(c.minRating);
-                  }
+              child: FilterChip(
+                avatar: Icon(
+                  settings.onlyFavorites
+                      ? Icons.favorite
+                      : Icons.favorite_border,
+                  size: 16,
+                  color: settings.onlyFavorites ? Colors.pink : null,
+                ),
+                label: const Text('♡だけ'),
+                selected: settings.onlyFavorites,
+                onSelected: (v) {
+                  ref
+                      .read(bookViewSettingsProvider.notifier)
+                      .setOnlyFavorites(v);
                 },
               ),
-            );
-          }).toList(),
+            ),
+            // 区切り
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Container(
+                height: 24,
+                width: 1,
+                color: Colors.black26,
+              ),
+            ),
+            // 評価フィルタ
+            ..._ratingChoices.map((c) {
+              final selected = settings.minRating == c.minRating;
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ChoiceChip(
+                  label: Text(c.label),
+                  selected: selected,
+                  onSelected: (_) {
+                    if (!selected) {
+                      ref
+                          .read(bookViewSettingsProvider.notifier)
+                          .setMinRating(c.minRating);
+                    }
+                  },
+                ),
+              );
+            }),
+          ],
         ),
       ),
     );

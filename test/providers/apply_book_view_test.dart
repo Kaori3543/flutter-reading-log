@@ -9,17 +9,24 @@ import 'package:sample/providers/book_view_settings_provider.dart';
 Book makeBook(
   String id, {
   String? title,
+  String? author,
+  String? publisher,
+  String? genre,
   BookStatus status = BookStatus.wantToRead,
   double rating = 0.0,
   DateTime? finishedAt,
+  bool isFavorite = false,
 }) {
   return Book(
     id: id,
     title: title ?? 'title-$id',
-    author: 'author-$id',
+    author: author ?? 'author-$id',
+    publisher: publisher,
+    genre: genre,
     status: status,
     rating: rating,
     finishedAt: finishedAt,
+    isFavorite: isFavorite,
   );
 }
 
@@ -186,6 +193,164 @@ void main() {
       );
       expect(original.map((b) => b.id).toList(),
           snapshot.map((b) => b.id).toList());
+    });
+  });
+
+  group('applyBookView - ♡ お気に入りフィルタ（W11）', () {
+    test('onlyFavorites = true は isFavorite の本だけ返す', () {
+      final books = [
+        makeBook('1', isFavorite: true),
+        makeBook('2', isFavorite: false),
+        makeBook('3', isFavorite: true),
+      ];
+      final result = applyBookView(
+        books,
+        const BookViewSettings(onlyFavorites: true),
+      );
+      expect(result.map((b) => b.id), unorderedEquals(['1', '3']));
+    });
+
+    test('onlyFavorites = false は全件通過', () {
+      final books = [
+        makeBook('1', isFavorite: true),
+        makeBook('2', isFavorite: false),
+      ];
+      final result = applyBookView(books, const BookViewSettings());
+      expect(result, hasLength(2));
+    });
+  });
+
+  group('applyBookView - 全文検索クエリ（W11）', () {
+    test('タイトルに部分一致する本だけを返す（大文字小文字無視）', () {
+      final books = [
+        makeBook('1', title: '夏の終わり'),
+        makeBook('2', title: '冬の朝'),
+        makeBook('3', title: '夏目漱石全集'),
+      ];
+      final result = applyBookView(
+        books,
+        const BookViewSettings(searchQuery: '夏'),
+      );
+      expect(result.map((b) => b.id), unorderedEquals(['1', '3']));
+    });
+
+    test('著者・出版社・ジャンルも検索対象', () {
+      final books = [
+        makeBook('1', title: 'A', author: '村上 春樹'),
+        makeBook('2', title: 'B', publisher: '岩波書店'),
+        makeBook('3', title: 'C', genre: '小説'),
+        makeBook('4', title: 'D', author: 'noise'),
+      ];
+      expect(
+        applyBookView(books, const BookViewSettings(searchQuery: '村上'))
+            .map((b) => b.id),
+        ['1'],
+      );
+      expect(
+        applyBookView(books, const BookViewSettings(searchQuery: '岩波'))
+            .map((b) => b.id),
+        ['2'],
+      );
+      expect(
+        applyBookView(books, const BookViewSettings(searchQuery: '小説'))
+            .map((b) => b.id),
+        ['3'],
+      );
+    });
+
+    test('レビュー本文が reviewTextsByBookId 経由で検索対象になる', () {
+      final books = [
+        makeBook('1', title: 'A'),
+        makeBook('2', title: 'B'),
+        makeBook('3', title: 'C'),
+      ];
+      final reviews = {
+        '1': '泣ける感動の物語',
+        '2': 'ビジネスの基本',
+      };
+      final result = applyBookView(
+        books,
+        const BookViewSettings(searchQuery: '感動'),
+        reviewTextsByBookId: reviews,
+      );
+      expect(result.map((b) => b.id), ['1']);
+    });
+
+    test('大文字小文字を区別しない', () {
+      final books = [
+        makeBook('1', title: 'Flutter Cookbook'),
+      ];
+      expect(
+        applyBookView(books, const BookViewSettings(searchQuery: 'flutter'))
+            .map((b) => b.id),
+        ['1'],
+      );
+      expect(
+        applyBookView(books, const BookViewSettings(searchQuery: 'COOKBOOK'))
+            .map((b) => b.id),
+        ['1'],
+      );
+    });
+
+    test('前後の空白は無視', () {
+      final books = [
+        makeBook('1', title: 'hello world'),
+      ];
+      expect(
+        applyBookView(books, const BookViewSettings(searchQuery: '  hello  '))
+            .map((b) => b.id),
+        ['1'],
+      );
+    });
+
+    test('検索クエリが空文字なら全件通過', () {
+      final books = [
+        makeBook('1'),
+        makeBook('2'),
+      ];
+      final result =
+          applyBookView(books, const BookViewSettings(searchQuery: ''));
+      expect(result, hasLength(2));
+    });
+
+    test('検索 + ステータス + 評価 + ♡ は AND 条件で適用', () {
+      final books = [
+        makeBook('1',
+            title: '夏の本',
+            status: BookStatus.finished,
+            rating: 5.0,
+            isFavorite: true),
+        makeBook('2',
+            title: '夏の本',
+            status: BookStatus.finished,
+            rating: 5.0,
+            isFavorite: false), // 除外（♡なし）
+        makeBook('3',
+            title: '夏の本',
+            status: BookStatus.reading,
+            rating: 5.0,
+            isFavorite: true), // 除外（読書中）
+        makeBook('4',
+            title: '夏の本',
+            status: BookStatus.finished,
+            rating: 3.0,
+            isFavorite: true), // 除外（評価低）
+        makeBook('5',
+            title: '冬の本',
+            status: BookStatus.finished,
+            rating: 5.0,
+            isFavorite: true), // 除外（検索ミス）
+      ];
+      final result = applyBookView(
+        books,
+        const BookViewSettings(
+          searchQuery: '夏',
+          statusFilter: BookStatus.finished,
+          minRating: 4.0,
+          onlyFavorites: true,
+        ),
+      );
+      expect(result.map((b) => b.id), ['1']);
     });
   });
 }

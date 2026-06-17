@@ -17,6 +17,7 @@ import 'package:sample/list/BookListItem.dart';
 import '../models/book.dart';
 import '../providers/book_list_provider.dart';
 import '../providers/book_view_settings_provider.dart';
+import '../providers/review_list_provider.dart';
 
 class BookListView extends ConsumerStatefulWidget {
   const BookListView({super.key});
@@ -98,16 +99,39 @@ class _BookListViewState extends ConsumerState<BookListView> {
     }
   }
 
+  /// 全本のレビュー本文を bookId → 連結文字列の Map にする（W11 で追加）。
+  /// 検索クエリが空のときは null を返す（applyBookView 側で受け取らない扱い）。
+  /// ReviewRepository を直接読むので、最新の hive 状態を毎回反映する。
+  Map<String, String>? _buildReviewTextMap(BookViewSettings settings) {
+    if (settings.searchQuery.trim().isEmpty) return null;
+    final repo = ref.read(reviewRepositoryProvider);
+    final reviews = repo.getAll();
+    final map = <String, String>{};
+    for (final r in reviews) {
+      final existing = map[r.bookId];
+      map[r.bookId] = existing == null ? r.content : '$existing\n${r.content}';
+    }
+    return map;
+  }
+
   @override
   Widget build(BuildContext context) {
     // bookListProvider または表示設定が変わったら _syncList で差分適用する。
     ref.listen<List<Book>>(bookListProvider, (prev, next) {
       final settings = ref.read(bookViewSettingsProvider);
-      _syncList(applyBookView(next, settings));
+      _syncList(applyBookView(
+        next,
+        settings,
+        reviewTextsByBookId: _buildReviewTextMap(settings),
+      ));
     });
     ref.listen<BookViewSettings>(bookViewSettingsProvider, (prev, next) {
       final books = ref.read(bookListProvider);
-      _syncList(applyBookView(books, next));
+      _syncList(applyBookView(
+        books,
+        next,
+        reviewTextsByBookId: _buildReviewTextMap(next),
+      ));
     });
 
     // 本棚全体が空（フィルタ後 0 件含む）なら案内画面を出す。
