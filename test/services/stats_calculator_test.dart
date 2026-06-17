@@ -200,4 +200,80 @@ void main() {
       expect(rAll.recent30DaysCount, 1);
     });
   });
+
+  group('calculateStats - 今月の完読冊数（W9）', () {
+    test('now と同じ年月の finishedAt の本だけ thisMonthCount に集計', () {
+      // now = 2026/06/01
+      final books = [
+        makeFinished('a', finishedAt: DateTime(2026, 6, 1)),
+        makeFinished('b', finishedAt: DateTime(2026, 6, 25)),
+        makeFinished('c', finishedAt: DateTime(2026, 5, 30)),
+        makeFinished('d', finishedAt: DateTime(2025, 6, 1)),
+      ];
+      final r = calculateStats(books, StatsPeriod.last6Months, now);
+      expect(r.thisMonthCount, 2);
+    });
+
+    test('期間フィルタの影響を受けない（全データから今月分を集計）', () {
+      final books = [
+        makeFinished('a', finishedAt: DateTime(2026, 6, 15)),
+      ];
+      final r6 = calculateStats(books, StatsPeriod.last6Months, now);
+      final rAll = calculateStats(books, StatsPeriod.allTime, now);
+      expect(r6.thisMonthCount, 1);
+      expect(rAll.thisMonthCount, 1);
+    });
+  });
+
+  group('calculateStats - お気に入り著者ランキング（W9 案 V）', () {
+    Book favorite(String id, String author) => Book(
+          id: id,
+          title: 't-$id',
+          author: author,
+          status: BookStatus.finished,
+          finishedAt: DateTime(2026, 5, 1),
+          rating: 4.5,
+          isFavoriteAuthor: true,
+        );
+
+    test('isFavoriteAuthor = true の本で著者ごとに集計（多い順）', () {
+      final books = [
+        favorite('1', 'A'),
+        favorite('2', 'A'),
+        favorite('3', 'B'),
+        // フラグ OFF の高評価本は集計対象外
+        Book(
+          id: '4',
+          title: 'no-fav',
+          author: 'C',
+          status: BookStatus.finished,
+          finishedAt: DateTime(2026, 5, 1),
+          rating: 5.0,
+        ),
+      ];
+      final r = calculateStats(books, StatsPeriod.allTime, now);
+      expect(r.favoriteAuthors, hasLength(2));
+      expect(r.favoriteAuthors[0].author, 'A');
+      expect(r.favoriteAuthors[0].favoriteCount, 2);
+      expect(r.favoriteAuthors[1].author, 'B');
+    });
+
+    test('期間フィルタの影響を受けない（全期間で集計）', () {
+      final books = [
+        favorite('1', 'A'),
+        Book(
+          id: '2',
+          title: 'old',
+          author: 'A',
+          status: BookStatus.finished,
+          finishedAt: DateTime(2020, 1, 1),
+          rating: 5.0,
+          isFavoriteAuthor: true,
+        ),
+      ];
+      // last6Months にしても A 著者 2 件として集計される
+      final r6 = calculateStats(books, StatsPeriod.last6Months, now);
+      expect(r6.favoriteAuthors.first.favoriteCount, 2);
+    });
+  });
 }
