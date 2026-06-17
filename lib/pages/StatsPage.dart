@@ -9,6 +9,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/book_list_provider.dart';
+import '../providers/reading_goal_provider.dart';
 import '../services/stats_calculator.dart';
 
 class StatsPage extends ConsumerStatefulWidget {
@@ -58,6 +59,7 @@ class _StatsPageState extends ConsumerState<StatsPage>
   @override
   Widget build(BuildContext context) {
     final books = ref.watch(bookListProvider);
+    final goal = ref.watch(readingGoalProvider);
     final period = _periods[_tabController.index];
     final stats = calculateStats(books, period, DateTime.now());
 
@@ -70,50 +72,154 @@ class _StatsPageState extends ConsumerState<StatsPage>
           tabs: _periods.map((p) => Tab(text: p.label)).toList(),
         ),
       ),
-      body: stats.isEmpty
-          ? _emptyState()
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _summaryCards(stats),
-                const SizedBox(height: 24),
-                _sectionTitle('月別完読数'),
-                const SizedBox(height: 8),
-                _monthlyBarChart(stats),
-                const SizedBox(height: 24),
-                _sectionTitle('累計の推移'),
-                const SizedBox(height: 8),
-                _cumulativeLineChart(stats),
-                const SizedBox(height: 24),
-                _sectionTitle('ジャンル別の割合'),
-                const SizedBox(height: 8),
-                _genrePieChart(stats),
-                const SizedBox(height: 24),
-              ],
-            ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // 目標サマリは完読本ゼロでも表示（モチベの足掛かり）
+          _goalProgressCard(goal: goal, thisMonth: stats.thisMonthCount),
+          const SizedBox(height: 16),
+          if (stats.isEmpty)
+            _emptyStateInline()
+          else ...[
+            _summaryCards(stats),
+            const SizedBox(height: 24),
+            _sectionTitle('月別完読数'),
+            const SizedBox(height: 8),
+            _monthlyBarChart(stats),
+            const SizedBox(height: 24),
+            _sectionTitle('累計の推移'),
+            const SizedBox(height: 8),
+            _cumulativeLineChart(stats),
+            const SizedBox(height: 24),
+            _sectionTitle('ジャンル別の割合'),
+            const SizedBox(height: 8),
+            _genrePieChart(stats),
+            const SizedBox(height: 24),
+          ],
+          if (stats.favoriteAuthors.isNotEmpty) ...[
+            _sectionTitle('お気に入り著者 TOP5'),
+            const SizedBox(height: 8),
+            _favoriteAuthorsList(stats),
+            const SizedBox(height: 24),
+          ],
+        ],
+      ),
     );
   }
 
-  Widget _emptyState() {
-    return Center(
+  /// E2: 月間読書目標と今月の達成状況。
+  Widget _goalProgressCard({required int? goal, required int thisMonth}) {
+    final pct = (goal != null && goal > 0)
+        ? (thisMonth / goal).clamp(0.0, 1.0)
+        : 0.0;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.flag_outlined, size: 18),
+                SizedBox(width: 6),
+                Text('今月の読書目標',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (goal == null)
+              const Text(
+                'まだ目標が設定されていません（ホームタブで設定できます）',
+                style: TextStyle(color: Colors.black54),
+              )
+            else ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '$thisMonth',
+                    style: const TextStyle(
+                        fontSize: 28, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      '/ $goal 冊（${(pct * 100).round()}%）',
+                      style: const TextStyle(
+                          fontSize: 13, color: Colors.black54),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: pct,
+                  minHeight: 8,
+                  backgroundColor: Colors.grey.shade200,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// R7: お気に入り著者 TOP5 リスト。
+  Widget _favoriteAuthorsList(StatsResult stats) {
+    final top = stats.favoriteAuthors.take(5).toList();
+    return Card(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(top.length, (i) {
+          final s = top[i];
+          return ListTile(
+            dense: true,
+            leading: CircleAvatar(
+              radius: 14,
+              backgroundColor: const Color(0xFF6B4423),
+              child: Text(
+                '${i + 1}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            title: Text(s.author),
+            subtitle: Text(
+              '★${s.averageFavoriteRating.toStringAsFixed(1)} 平均 / 高評価 ${s.favoriteCount} 冊',
+              style: const TextStyle(fontSize: 11),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  /// 完読本ゼロでも目標サマリは出したいので、グラフ無し版の案内を分離。
+  Widget _emptyStateInline() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Column(
         children: [
-          Icon(Icons.bar_chart, size: 80, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          const Text(
-            'この期間に読了した本がありません',
-            style: TextStyle(fontSize: 16, color: Colors.black54),
-          ),
+          Icon(Icons.bar_chart, size: 64, color: Colors.grey.shade400),
+          const SizedBox(height: 12),
+          const Text('この期間に読了した本がありません',
+              style: TextStyle(fontSize: 14, color: Colors.black54)),
           const SizedBox(height: 4),
           const Text(
-            '本を「読了」にすると統計が表示されます',
-            style: TextStyle(fontSize: 13, color: Colors.black45),
+            '本を「読了」にするとグラフが表示されます',
+            style: TextStyle(fontSize: 12, color: Colors.black45),
           ),
         ],
       ),
     );
   }
+
 
   Widget _sectionTitle(String label) => Text(
         label,
