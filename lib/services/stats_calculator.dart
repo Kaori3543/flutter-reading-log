@@ -9,6 +9,7 @@
 library;
 
 import '../models/book.dart';
+import 'personalized_recommendations.dart';
 
 /// 統計集計の期間種別。
 enum StatsPeriod {
@@ -67,12 +68,21 @@ class StatsResult {
   /// 直近 30 日（now を含む）で完読した冊数。読書ペースの目安。
   final int recent30DaysCount;
 
+  /// 今月（now の年月）に完読した冊数（W9 で追加、目標進捗用）。
+  final int thisMonthCount;
+
+  /// お気に入り著者ランキング（W9 で追加）。完読 + ★4.0 以上で集計。
+  /// 期間フィルタの影響は受けず、全期間から計算する（嗜好の傾向は累積）。
+  final List<AuthorScore> favoriteAuthors;
+
   const StatsResult({
     required this.totalFinished,
     required this.monthly,
     required this.cumulative,
     required this.genres,
     required this.recent30DaysCount,
+    required this.thisMonthCount,
+    required this.favoriteAuthors,
   });
 
   /// 期間内に完読本が 1 件も無い状態。
@@ -167,12 +177,23 @@ StatsResult calculateStats(
       .where((b) => !b.finishedAt!.isBefore(thirtyDaysAgo))
       .length;
 
+  // 8. 今月の完読冊数（W9: 月間読書目標の達成率計算用）。
+  final thisMonth = finishedBooks.where((b) {
+    final f = b.finishedAt!;
+    return f.year == now.year && f.month == now.month;
+  }).length;
+
+  // 9. お気に入り著者ランキング（W9: 期間フィルタの影響を受けず全期間で集計）。
+  final favoriteAuthors = collectFavoriteAuthors(books);
+
   return StatsResult(
     totalFinished: inPeriod.length,
     monthly: monthly,
     cumulative: cumulative,
     genres: genres,
     recent30DaysCount: recent30,
+    thisMonthCount: thisMonth,
+    favoriteAuthors: favoriteAuthors,
   );
 }
 

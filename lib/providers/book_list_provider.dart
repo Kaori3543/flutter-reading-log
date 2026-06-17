@@ -105,6 +105,9 @@ class BookListNotifier extends StateNotifier<List<Book>> {
     }
 
     // copyWith では null を意図的にセットできないため、直接 Book を生成。
+    // W7/W9 で genre / genreId / addedAt / isFavoriteAuthor が追加された後も
+    // 既存値を保持するよう全フィールドを引き継ぐ（不在だと「ステータス変更で
+    // ジャンルが消える」「お気に入り著者解除」などの不具合になる）。
     final updated = Book(
       id: book.id,
       isbn: book.isbn,
@@ -118,6 +121,10 @@ class BookListNotifier extends StateNotifier<List<Book>> {
       rating: book.rating,
       startedAt: startedAt,
       finishedAt: finishedAt,
+      genre: book.genre,
+      genreId: book.genreId,
+      addedAt: book.addedAt,
+      isFavoriteAuthor: book.isFavoriteAuthor,
     );
     await _repository.save(updated);
     _load();
@@ -136,6 +143,46 @@ class BookListNotifier extends StateNotifier<List<Book>> {
     final book = _repository.findById(bookId);
     if (book == null) return;
     await _repository.save(book.copyWith(currentPage: currentPage));
+    _load();
+  }
+
+  /// 読み始め日を更新（W9 で追加）。
+  /// 「読書中」「読了」状態の本でユーザーが日付ピッカーで変更したときに呼ぶ。
+  /// 進捗のリマインダー（R6）が条件を満たすかの確認にも使える。
+  Future<void> updateStartedAt(String bookId, DateTime startedAt) async {
+    final book = _repository.findById(bookId);
+    if (book == null) return;
+    await _repository.save(book.copyWith(startedAt: startedAt));
+    _load();
+  }
+
+  /// 読了日を更新（W9 で追加）。
+  /// 「読了」状態の本でユーザーが日付ピッカーで変更したときに呼ぶ。
+  Future<void> updateFinishedAt(String bookId, DateTime finishedAt) async {
+    final book = _repository.findById(bookId);
+    if (book == null) return;
+    await _repository.save(book.copyWith(finishedAt: finishedAt));
+    _load();
+  }
+
+  /// 本棚に追加した日（addedAt）を更新（W9 で追加）。
+  /// 「読みたい」状態の本で「いつ買ったか」を後から記録できるように。
+  /// 積読放置リマインダー（R5）が条件を満たすかの確認にも使える。
+  Future<void> updateAddedAt(String bookId, DateTime addedAt) async {
+    final book = _repository.findById(bookId);
+    if (book == null) return;
+    await _repository.save(book.copyWith(addedAt: addedAt));
+    _load();
+  }
+
+  /// 「お気に入り著者にする」フラグを反転（W9 で追加）。
+  /// ON の本の主著者だけが統計・おすすめでお気に入り著者として扱われる。
+  Future<void> toggleFavoriteAuthor(String bookId) async {
+    final book = _repository.findById(bookId);
+    if (book == null) return;
+    await _repository.save(
+      book.copyWith(isFavoriteAuthor: !book.isFavoriteAuthor),
+    );
     _load();
   }
 }

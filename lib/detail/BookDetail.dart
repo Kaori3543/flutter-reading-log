@@ -84,13 +84,22 @@ class _BookDetailState extends ConsumerState<BookDetail> {
     );
 
     if (confirmed != true) return;
+    if (!mounted) return;
 
+    // W9 fix: 削除 → provider 更新 → build の自動 pop ロジック発火 →
+    // 加えてここでも pop → 二重 pop で IndexedStack ごと突き抜けて
+    // 真っ黒画面になる不具合があった。
+    // 解決策: pop を先に行い、ウィジェットを unmount してから provider を
+    // 更新する。NavigatorState / ScaffoldMessenger は pop 前に確保しておく。
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final title = book.title;
+
+    navigator.pop();
     await ref.read(bookListProvider.notifier).remove(book.id);
 
-    if (!mounted) return;
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('「${book.title}」を本棚から削除しました')),
+    messenger.showSnackBar(
+      SnackBar(content: Text('「$title」を本棚から削除しました')),
     );
   }
 
@@ -109,14 +118,15 @@ class _BookDetailState extends ConsumerState<BookDetail> {
   @override
   Widget build(BuildContext context) {
     // bookListProvider を watch して、最新の Book を取得する。
-    // 削除されたら null になり、自動で本棚画面に戻す。
     final books = ref.watch(bookListProvider);
     final book = books.where((b) => b.id == widget.book.id).firstOrNull;
 
     if (book == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pop();
-      });
+      // 本がもう存在しない（削除フロー中 / 外部要因で消えた）。
+      // 注意: W9 まで「自動で Navigator.pop」していたが、削除フローでも
+      // 明示的に pop しているため二重 pop で IndexedStack の外まで突き抜けて
+      // 真っ黒画面になっていた。空 Scaffold だけ返して、pop は呼び出し元
+      // （_confirmAndRemove）に任せる。
       return const Scaffold(body: SizedBox.shrink());
     }
 
@@ -286,6 +296,27 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                   : '未評価',
               style: const TextStyle(color: Colors.black54),
             ),
+            const Spacer(),
+            // W9: お気に入り著者スイッチ。ON にすると、この本の主著者が
+            // 「お気に入り著者」として統計画面・ホームタブのおすすめに登場する。
+            Tooltip(
+              message: book.isFavoriteAuthor
+                  ? 'お気に入り著者を解除'
+                  : 'この著者をお気に入りにする',
+              child: IconButton(
+                icon: Icon(
+                  book.isFavoriteAuthor
+                      ? Icons.favorite
+                      : Icons.favorite_border,
+                  color: book.isFavoriteAuthor ? Colors.pink : Colors.black45,
+                ),
+                onPressed: () {
+                  ref
+                      .read(bookListProvider.notifier)
+                      .toggleFavoriteAuthor(book.id);
+                },
+              ),
+            ),
           ],
         ),
       ],
@@ -328,25 +359,107 @@ class _BookDetailState extends ConsumerState<BookDetail> {
     );
   }
 
+  /// 状態に応じた日付情報セクション（W9 で編集可能化）。
+  ///
+  /// - 読みたい: 「本棚に追加」（addedAt 編集可）
+  /// - 読書中:   「読み始め」（startedAt 編集可）
+  /// - 読了:     「読み始め」「読了」（両方編集可）
+  ///
+  /// 値が null の場合は「未設定」表示にして、編集ボタンから後付けで日付を
+  /// 設定できる（W9 以前に登録した本でも addedAt を入れたい・リマインダーを
+  /// テストしたい等のケースに対応）。
   Widget _dateInfo(Book book) {
-    if (book.startedAt == null && book.finishedAt == null) {
-      return const SizedBox.shrink();
+    final rows = <Widget>[];
+
+    switch (book.status) {
+      case BookStatus.wantToRead:
+        rows.add(_editableDateRow(
+          label: '本棚に追加',
+          date: book.addedAt,
+          onChanged: (d) async => ref
+              .read(bookListProvider.notifier)
+              .updateAddedAt(book.id, d),
+        ));
+        break;
+      case BookStatus.reading:
+        rows.add(_editableDateRow(
+          label: '読み始め',
+          date: book.startedAt,
+          onChanged: (d) async => ref
+              .read(bookListProvider.notifier)
+              .updateStartedAt(book.id, d),
+        ));
+        break;
+      case BookStatus.finished:
+        rows.add(_editableDateRow(
+          label: '読み始め',
+          date: book.startedAt,
+          onChanged: (d) async => ref
+              .read(bookListProvider.notifier)
+              .updateStartedAt(book.id, d),
+        ));
+        rows.add(_editableDateRow(
+          label: '読了',
+          date: book.finishedAt,
+          onChanged: (d) async => ref
+              .read(bookListProvider.notifier)
+              .updateFinishedAt(book.id, d),
+        ));
+        break;
     }
+
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (book.startedAt != null)
-            Text('読み始め: ${_formatDate(book.startedAt!)}'),
-          if (book.finishedAt != null)
-            Text('読了: ${_formatDate(book.finishedAt!)}'),
-        ],
+        children: rows,
       ),
+    );
+  }
+
+  /// 日付編集 1 行: 「ラベル: yyyy/MM/dd」 + カレンダーアイコン。
+  /// [date] が null の場合は「未設定」表示、初期日付は今日を提示する。
+  Widget _editableDateRow({
+    required String label,
+    required DateTime? date,
+    required Future<void> Function(DateTime) onChanged,
+  }) {
+    final hasDate = date != null;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            hasDate ? '$label: ${_formatDate(date)}' : '$label: 未設定',
+            style: hasDate
+                ? null
+                : const TextStyle(color: Colors.black54),
+          ),
+        ),
+        IconButton(
+          tooltip: '$label を編集',
+          icon: const Icon(Icons.edit_calendar_outlined, size: 20),
+          onPressed: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: date ?? DateTime.now(),
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2100),
+              helpText: '$label を選択',
+            );
+            if (picked != null) {
+              await onChanged(picked);
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('$label を ${_formatDate(picked)} に更新しました')),
+              );
+            }
+          },
+        ),
+      ],
     );
   }
 

@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'MainPageWidget.dart';
 import 'providers/book_list_provider.dart';
+import 'providers/reading_goal_provider.dart';
 import 'providers/review_list_provider.dart';
 import 'services/book_repository.dart';
 import 'services/review_repository.dart';
+import 'services/settings_repository.dart';
 
 
 /*
@@ -33,6 +35,9 @@ Future<void> main() async {
   final reviewRepo = ReviewRepository();
   await reviewRepo.init();
 
+  // W9: 読書目標などのアプリ設定を保存する settings box を開く。
+  await SettingsRepository.init();
+
   // ProviderScope で全ウィジェットツリーをラップ。
   // 各 Repository の provider を override で実 Repository に差し替える。
   runApp(
@@ -40,6 +45,8 @@ Future<void> main() async {
       overrides: [
         bookRepositoryProvider.overrideWithValue(bookRepo),
         reviewRepositoryProvider.overrideWithValue(reviewRepo),
+        settingsRepositoryProvider
+            .overrideWithValue(SettingsRepository.instance),
       ],
       child: const MyApp(),
     ),
