@@ -32,16 +32,48 @@ class BookListItem extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 100,
-            height: 100,
-            margin: const EdgeInsets.only(right: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(1),
-              color: Colors.white,
-              boxShadow: const [BoxShadow(color: Colors.grey, blurRadius: 1)],
-            ),
-            child: _imageWidget(),
+          // 表紙コンテナの右上に♥マークを重ねるため Stack でラップ（W11）。
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(1),
+                  color: Colors.white,
+                  boxShadow: const [
+                    BoxShadow(color: Colors.grey, blurRadius: 1),
+                  ],
+                ),
+                child: _imageWidget(),
+              ),
+              if (book.isFavorite)
+                Positioned(
+                  top: -4,
+                  right: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 2,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.favorite,
+                      size: 14,
+                      color: Colors.pink,
+                    ),
+                  ),
+                ),
+            ],
           ),
           Expanded(
             child: SizedBox(
