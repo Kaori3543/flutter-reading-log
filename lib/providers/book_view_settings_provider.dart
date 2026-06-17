@@ -56,16 +56,28 @@ class BookViewSettings {
   /// 並び順。
   final BookSort sort;
 
+  /// 全文検索クエリ（W11 で追加）。空文字なら検索なし。
+  /// タイトル / 著者 / 出版社 / ジャンル / レビュー本文を横断検索する。
+  final String searchQuery;
+
+  /// お気に入り本だけに絞り込むフラグ（W11 で追加）。
+  /// 評価 Chip 帯の「♡だけ」と同期。
+  final bool onlyFavorites;
+
   const BookViewSettings({
     this.statusFilter,
     this.minRating = 0.0,
     this.sort = BookSort.addedDesc,
+    this.searchQuery = '',
+    this.onlyFavorites = false,
   });
 
   BookViewSettings copyWith({
     Object? statusFilter = _unset,
     double? minRating,
     BookSort? sort,
+    String? searchQuery,
+    bool? onlyFavorites,
   }) {
     return BookViewSettings(
       statusFilter: identical(statusFilter, _unset)
@@ -73,6 +85,8 @@ class BookViewSettings {
           : statusFilter as BookStatus?,
       minRating: minRating ?? this.minRating,
       sort: sort ?? this.sort,
+      searchQuery: searchQuery ?? this.searchQuery,
+      onlyFavorites: onlyFavorites ?? this.onlyFavorites,
     );
   }
 
@@ -93,6 +107,16 @@ class BookViewSettingsNotifier extends StateNotifier<BookViewSettings> {
 
   void setSort(BookSort sort) {
     state = state.copyWith(sort: sort);
+  }
+
+  /// 検索クエリを更新（W11 で追加）。
+  void setSearchQuery(String query) {
+    state = state.copyWith(searchQuery: query);
+  }
+
+  /// 「♡だけ」フィルタを切替（W11 で追加）。
+  void setOnlyFavorites(bool onlyFavorites) {
+    state = state.copyWith(onlyFavorites: onlyFavorites);
   }
 }
 

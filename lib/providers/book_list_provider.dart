@@ -125,6 +125,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
       genreId: book.genreId,
       addedAt: book.addedAt,
       isFavoriteAuthor: book.isFavoriteAuthor,
+      isFavorite: book.isFavorite,
     );
     await _repository.save(updated);
     _load();
@@ -185,6 +186,19 @@ class BookListNotifier extends StateNotifier<List<Book>> {
     );
     _load();
   }
+
+  /// 「この本をお気に入りにする」フラグを反転（W11 で追加）。
+  /// 著者単位の [toggleFavoriteAuthor] と独立。本詳細の♥ボタン、本棚カードの
+  /// ♥マーク、本棚タブの「♡だけ」フィルタ、ホームタブの「お気に入りの本」
+  /// セクションで使う。
+  Future<void> toggleFavorite(String bookId) async {
+    final book = _repository.findById(bookId);
+    if (book == null) return;
+    await _repository.save(
+      book.copyWith(isFavorite: !book.isFavorite),
+    );
+    _load();
+  }
 }
 
 /// 本棚の本のリストを公開する provider。
@@ -196,16 +210,24 @@ final bookListProvider =
   return BookListNotifier(repository, reviewRepository);
 });
 
-/// 本棚の表示設定（タブ/評価フィルタ/ソート）を適用した本リストを返す純粋関数。
+/// 本棚の表示設定（タブ/評価フィルタ/ソート/検索/♡）を適用した本リストを返す純粋関数。
 ///
-/// W6 で追加。UI 側は `bookListProvider` と `bookViewSettingsProvider` を
-/// 両方 watch し、本関数で組み合わせる。純粋関数なのでテストしやすい。
+/// W6 で追加。W11 で検索クエリ・♡フィルタを追加。
+/// UI 側は `bookListProvider` と `bookViewSettingsProvider` を両方 watch し、
+/// 本関数で組み合わせる。純粋関数なのでテストしやすい。
 ///
-/// 適用順:
+/// 適用順（すべて AND 条件）:
 ///   1. ステータスフィルタ（タブ）
 ///   2. 評価フィルタ（minRating 以上）
-///   3. ソート
-List<Book> applyBookView(List<Book> books, BookViewSettings settings) {
+///   3. ♡フィルタ（onlyFavorites）
+///   4. 検索クエリ（タイトル / 著者 / 出版社 / ジャンル を横断、case-insensitive）
+///      + [reviewTextsByBookId] が渡されていれば、そのレビュー本文も対象
+///   5. ソート
+List<Book> applyBookView(
+  List<Book> books,
+  BookViewSettings settings, {
+  Map<String, String>? reviewTextsByBookId,
+}) {
   Iterable<Book> result = books;
 
   if (settings.statusFilter != null) {
@@ -213,6 +235,22 @@ List<Book> applyBookView(List<Book> books, BookViewSettings settings) {
   }
   if (settings.minRating > 0.0) {
     result = result.where((b) => b.rating >= settings.minRating);
+  }
+  if (settings.onlyFavorites) {
+    result = result.where((b) => b.isFavorite);
+  }
+  final q = settings.searchQuery.trim().toLowerCase();
+  if (q.isNotEmpty) {
+    result = result.where((b) {
+      final fields = <String?>[
+        b.title,
+        b.author,
+        b.publisher,
+        b.genre,
+        reviewTextsByBookId?[b.id],
+      ];
+      return fields.any((f) => f != null && f.toLowerCase().contains(q));
+    });
   }
 
   final list = result.toList();
