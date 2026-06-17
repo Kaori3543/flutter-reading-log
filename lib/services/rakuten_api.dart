@@ -23,6 +23,13 @@ import 'package:sample/models/book.dart';
 const _baseUrl =
     'https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404';
 
+/// 発見タブのランキング表示で使う、本 + あらすじの組（W8）。
+///
+/// 楽天 API のレスポンスから抽出した `itemCaption`（あらすじテキスト）は
+/// 本棚に保存する [Book] モデルには含めず、BottomSheet の表示にだけ使う。
+/// なので Book と別に持ち回るためのレコード型として定義する。
+typedef RankingItem = ({Book book, String? caption});
+
 /// 楽天 Books ジャンル検索 API のエンドポイント（v20121128）。
 /// W7 で追加。booksGenreId → 人間可読なジャンル名の変換に使う。
 /// 仕様: https://webservice.rakuten.co.jp/documentation/books-genre-search
@@ -56,6 +63,12 @@ class RakutenApi {
   /// 何度も BooksGenre/Search を叩かないようにメモリに保持する。
   /// インスタンスのライフサイクル内のみ有効（アプリ再起動でクリア）。
   final Map<String, String> _genreNameCache = {};
+
+  /// ランキング検索結果のキャッシュ（W8）。
+  ///
+  /// キーは `"{booksGenreId}/{hits}"` 形式。発見タブを開くたびに同じ API を
+  /// 叩かないようにする。インスタンスのライフサイクル内のみ有効。
+  final Map<String, List<RankingItem>> _rankingCache = {};
 
   RakutenApi({
     http.Client? client,
@@ -155,6 +168,73 @@ class RakutenApi {
     return parseSearchResponse(response.body);
   }
 
+  /// 指定ジャンルの売れている順ランキングを取得する（W8）。
+  ///
+  /// 楽天 Books の Search API に `booksGenreId` + `sort=sales` を指定すると、
+  /// そのジャンルで売れている順に並んだ本リストが返る。レスポンスの配列順
+  /// がそのままランキング順位（先頭 = 1 位）。
+  ///
+  /// 戻り値の本は genreId が必ずセットされる（呼び出し元のセクションが
+  /// どのジャンルだったか分かるように）。本登録時のジャンル名解決は
+  /// 既存 [getGenreName] と同じ流れで行う。
+  ///
+  /// レスポンスはメモリにキャッシュする（同 (genreId, hits) はセッション内で
+  /// 2 回目以降 API を叩かない）。
+  Future<List<RankingItem>> searchRanking({
+    required String booksGenreId,
+    int hits = 20,
+  }) async {
+    if (_applicationId.isEmpty || _accessKey.isEmpty) {
+      // 検索 API と違い、ランキングは「画面の一部」なので例外ではなく空配列
+      // を返す（ローディング失敗を呼び出し側でハンドリングしやすい）。
+      return const [];
+    }
+
+    final cacheKey = '$booksGenreId/$hits';
+    final cached = _rankingCache[cacheKey];
+    if (cached != null) return cached;
+
+    final uri = Uri.parse(_baseUrl).replace(queryParameters: {
+      'applicationId': _applicationId,
+      'accessKey': _accessKey,
+      'booksGenreId': booksGenreId,
+      'sort': 'sales',
+      'format': 'json',
+      'hits': '$hits',
+    });
+
+    try {
+      final response = await _client.get(uri);
+      if (response.statusCode != 200) return const [];
+      final items = parseRankingResponse(response.body);
+      _rankingCache[cacheKey] = items;
+      return items;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// 楽天 API の検索レスポンスを `(Book, あらすじ)` のリストに変換する（W8）。
+  ///
+  /// 構造は [parseSearchResponse] と同じだが、ランキング/発見タブ用に
+  /// itemCaption（あらすじテキスト）も一緒に取り出す。Book モデルには
+  /// 保存しない transient なデータ。
+  static List<RankingItem> parseRankingResponse(String body) {
+    final json = jsonDecode(body) as Map<String, dynamic>;
+    final items = json['Items'] as List<dynamic>? ?? [];
+
+    return items.map<RankingItem>((wrapped) {
+      final item = (wrapped as Map<String, dynamic>)['Item']
+          as Map<String, dynamic>;
+      final book = _buildBookFromItem(item);
+      final caption = item['itemCaption'] as String?;
+      return (
+        book: book,
+        caption: (caption != null && caption.isNotEmpty) ? caption : null,
+      );
+    }).toList();
+  }
+
   /// 楽天 API の検索レスポンス JSON を `List<Book>` にパースする。
   ///
   /// テスト容易性のため public + static にした（モック JSON を渡してパース
@@ -166,35 +246,44 @@ class RakutenApi {
     return items.map((wrapped) {
       final item = (wrapped as Map<String, dynamic>)['Item']
           as Map<String, dynamic>;
-      final isbn = item['isbn'] as String? ?? '';
-      final title = item['title'] as String? ?? '(タイトル不明)';
-
-      return Book(
-        // ISBN があれば id として使用、なければ title を fallback として
-        // 使う（W3 で hive に保存する際の一意キー）。
-        id: isbn.isNotEmpty ? isbn : title,
-        isbn: isbn.isNotEmpty ? isbn : null,
-        title: title,
-        author: item['author'] as String? ?? '(著者不明)',
-        publisher: item['publisherName'] as String?,
-        // 画像は large → medium → small の優先順で使う。
-        coverImageUrl: (item['largeImageUrl'] as String?)?.isNotEmpty == true
-            ? item['largeImageUrl'] as String
-            : (item['mediumImageUrl'] as String?)?.isNotEmpty == true
-                ? item['mediumImageUrl'] as String
-                : item['smallImageUrl'] as String?,
-        // 楽天 Books API のレスポンスには総ページ数が含まれないため null。
-        totalPages: null,
-        // 検索結果は「読みたい候補」なので wantToRead を初期値に。
-        // 実際に本棚に登録する時はユーザーがステータスを選び直す（W3）。
-        status: BookStatus.wantToRead,
-        // W7: 検索結果には booksGenreId（例: "001004009"）だけが入る。
-        // 人間可読なジャンル名は本登録時に getGenreName で別途取得して
-        // Book.genre にセットする（ここでは genre は null のまま）。
-        genreId: (item['booksGenreId'] as String?)?.isNotEmpty == true
-            ? item['booksGenreId'] as String
-            : null,
-      );
+      return _buildBookFromItem(item);
     }).toList();
+  }
+
+  /// 楽天 API の `Item` オブジェクトから [Book] を組み立てる共通ロジック。
+  ///
+  /// [parseSearchResponse] と [parseRankingResponse] の重複を排除するため、
+  /// W8 で切り出した。Book モデルにそのまま入る項目だけを扱う
+  /// （あらすじ itemCaption は呼び出し側で別途取り出す）。
+  static Book _buildBookFromItem(Map<String, dynamic> item) {
+    final isbn = item['isbn'] as String? ?? '';
+    final title = item['title'] as String? ?? '(タイトル不明)';
+
+    return Book(
+      // ISBN があれば id として使用、なければ title を fallback として使う
+      // （W3 で hive に保存する際の一意キー）。
+      id: isbn.isNotEmpty ? isbn : title,
+      isbn: isbn.isNotEmpty ? isbn : null,
+      title: title,
+      author: item['author'] as String? ?? '(著者不明)',
+      publisher: item['publisherName'] as String?,
+      // 画像は large → medium → small の優先順で使う。
+      coverImageUrl: (item['largeImageUrl'] as String?)?.isNotEmpty == true
+          ? item['largeImageUrl'] as String
+          : (item['mediumImageUrl'] as String?)?.isNotEmpty == true
+              ? item['mediumImageUrl'] as String
+              : item['smallImageUrl'] as String?,
+      // 楽天 Books API のレスポンスには総ページ数が含まれないため null。
+      totalPages: null,
+      // 検索結果は「読みたい候補」なので wantToRead を初期値に。
+      // 実際に本棚に登録する時はユーザーがステータスを選び直す（W3）。
+      status: BookStatus.wantToRead,
+      // W7: 検索結果には booksGenreId（例: "001004009"）だけが入る。
+      // 人間可読なジャンル名は本登録時に getGenreName で別途取得して
+      // Book.genre にセットする（ここでは genre は null のまま）。
+      genreId: (item['booksGenreId'] as String?)?.isNotEmpty == true
+          ? item['booksGenreId'] as String
+          : null,
+    );
   }
 }
