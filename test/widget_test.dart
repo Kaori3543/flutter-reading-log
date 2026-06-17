@@ -62,6 +62,9 @@ class _FakeReviewRepository implements ReviewRepository {
       _store.values.where((r) => r.bookId == bookId).toList();
 
   @override
+  List<Review> getAll() => _store.values.toList();
+
+  @override
   Review? findById(String id) => _store[id];
 
   @override
