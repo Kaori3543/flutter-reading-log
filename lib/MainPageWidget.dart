@@ -1,17 +1,19 @@
-/// アプリのルートウィジェット（W9 で 4 タブ構成に拡張）。
+/// アプリのルートウィジェット（W12 で 5 タブ構成に拡張）。
 ///
 /// W1〜W6: AppBar + 本棚画面の全機能をここに集約していた
 /// W7: 機能ごとにページを分け、BottomNavigationBar で切替（本棚 / 統計）
 /// W8: 「発見」タブを追加（楽天売れ筋ランキング）
 /// W9: 「ホーム」タブを追加（ダッシュボード: 目標 / リマインダー / おすすめ）
-///     初期表示タブを本棚 → ホームに変更
-/// IndexedStack で 4 ページの State（TabController や Future）を保持する。
+/// W12: 「ライブラリ」タブを追加（お気に入り本 + タグ）。Apple Music 風に
+///      「自分でまとめた分類」を集約する場所。W11 のお気に入り本もここに集約。
+/// IndexedStack で 5 ページの State を保持する。
 library;
 
 import 'package:flutter/material.dart';
 import 'pages/BookshelfPage.dart';
 import 'pages/DiscoverPage.dart';
 import 'pages/HomePage.dart';
+import 'pages/LibraryPage.dart';
 import 'pages/StatsPage.dart';
 
 class MainPageWidget extends StatefulWidget {
@@ -27,6 +29,7 @@ class _MainPageWidgetState extends State<MainPageWidget> {
   static const _pages = [
     HomePage(),
     BookshelfPage(),
+    LibraryPage(),
     DiscoverPage(),
     StatsPage(),
   ];
@@ -51,6 +54,11 @@ class _MainPageWidgetState extends State<MainPageWidget> {
             icon: Icon(Icons.menu_book_outlined),
             selectedIcon: Icon(Icons.menu_book),
             label: '本棚',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.library_books_outlined),
+            selectedIcon: Icon(Icons.library_books),
+            label: 'ライブラリ',
           ),
           NavigationDestination(
             icon: Icon(Icons.explore_outlined),

@@ -79,16 +79,9 @@ class _HomePageState extends ConsumerState<HomePage> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         children: [
           _goalCard(context, goal: goal, thisMonth: thisMonthCount),
-          // W11: お気に入りの本セクション。リマインダーより上に置いて、
-          // 起動時に一目で見えるダッシュボード的な位置に。
-          if (books.any((b) => b.isFavorite))
-            _bookListSection(
-              context,
-              title: 'お気に入りの本',
-              icon: Icons.favorite,
-              subtitle: 'いつでも見返したい一冊',
-              books: books.where((b) => b.isFavorite).toList(),
-            ),
+          // W11 ではお気に入り本セクションをここに置いていたが、W12 で
+          // 「ライブラリ」タブを新設したため、お気に入りはそちらに集約した
+          // （ホーム = 今日の体験、ライブラリ = 自分の分類 という役割分担）。
           if (reminders.stalledReading.isNotEmpty)
             _bookListSection(
               context,
@@ -122,10 +115,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           // 全部空のときの fallback メッセージ。
           // 本棚が空（新規ユーザー）か、本棚に本はあるがリマインダー条件を
           // 満たしていないだけかで文言を出し分ける。
-          if (reminders.isEmpty &&
-              topAuthor == null &&
-              topGenreId == null &&
-              !books.any((b) => b.isFavorite))
+          if (reminders.isEmpty && topAuthor == null && topGenreId == null)
             Padding(
               padding: const EdgeInsets.all(24),
               child: Center(
