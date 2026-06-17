@@ -64,12 +64,18 @@ class BookViewSettings {
   /// 評価 Chip 帯の「♡だけ」と同期。
   final bool onlyFavorites;
 
+  /// タグでの絞り込み（W12 で追加）。空 Set なら絞り込みなし。
+  /// 複数選択時は OR 条件（どれか 1 つでも持っていれば一致）。
+  /// 本棚タブの「タグで絞り込み」UI から設定する想定。
+  final Set<String> tagFilters;
+
   const BookViewSettings({
     this.statusFilter,
     this.minRating = 0.0,
     this.sort = BookSort.addedDesc,
     this.searchQuery = '',
     this.onlyFavorites = false,
+    this.tagFilters = const {},
   });
 
   BookViewSettings copyWith({
@@ -78,6 +84,7 @@ class BookViewSettings {
     BookSort? sort,
     String? searchQuery,
     bool? onlyFavorites,
+    Set<String>? tagFilters,
   }) {
     return BookViewSettings(
       statusFilter: identical(statusFilter, _unset)
@@ -87,6 +94,7 @@ class BookViewSettings {
       sort: sort ?? this.sort,
       searchQuery: searchQuery ?? this.searchQuery,
       onlyFavorites: onlyFavorites ?? this.onlyFavorites,
+      tagFilters: tagFilters ?? this.tagFilters,
     );
   }
 
@@ -117,6 +125,11 @@ class BookViewSettingsNotifier extends StateNotifier<BookViewSettings> {
   /// 「♡だけ」フィルタを切替（W11 で追加）。
   void setOnlyFavorites(bool onlyFavorites) {
     state = state.copyWith(onlyFavorites: onlyFavorites);
+  }
+
+  /// タグ絞り込みを設定（W12 で追加）。空 Set でクリア。
+  void setTagFilters(Set<String> tagFilters) {
+    state = state.copyWith(tagFilters: tagFilters);
   }
 }
 

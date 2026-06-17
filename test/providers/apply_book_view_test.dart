@@ -16,6 +16,7 @@ Book makeBook(
   double rating = 0.0,
   DateTime? finishedAt,
   bool isFavorite = false,
+  List<String> tags = const [],
 }) {
   return Book(
     id: id,
@@ -27,6 +28,7 @@ Book makeBook(
     rating: rating,
     finishedAt: finishedAt,
     isFavorite: isFavorite,
+    tags: tags,
   );
 }
 
@@ -310,6 +312,30 @@ void main() {
       ];
       final result =
           applyBookView(books, const BookViewSettings(searchQuery: ''));
+      expect(result, hasLength(2));
+    });
+
+    test('タグフィルタは OR 条件で適用される（W12）', () {
+      final books = [
+        makeBook('1', tags: ['仕事用']),
+        makeBook('2', tags: ['2026年']),
+        makeBook('3', tags: ['仕事用', '2026年']),
+        makeBook('4', tags: ['教養']),
+      ];
+      // 仕事用 OR 2026年 → 1, 2, 3 が該当
+      final result = applyBookView(
+        books,
+        const BookViewSettings(tagFilters: {'仕事用', '2026年'}),
+      );
+      expect(result.map((b) => b.id), unorderedEquals(['1', '2', '3']));
+    });
+
+    test('タグフィルタが空 Set ならフィルタなし（W12）', () {
+      final books = [
+        makeBook('1', tags: ['仕事用']),
+        makeBook('2'),
+      ];
+      final result = applyBookView(books, const BookViewSettings());
       expect(result, hasLength(2));
     });
 

@@ -126,6 +126,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
       addedAt: book.addedAt,
       isFavoriteAuthor: book.isFavoriteAuthor,
       isFavorite: book.isFavorite,
+      tags: book.tags,
     );
     await _repository.save(updated);
     _load();
@@ -189,7 +190,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
 
   /// 「この本をお気に入りにする」フラグを反転（W11 で追加）。
   /// 著者単位の [toggleFavoriteAuthor] と独立。本詳細の♥ボタン、本棚カードの
-  /// ♥マーク、本棚タブの「♡だけ」フィルタ、ホームタブの「お気に入りの本」
+  /// ♥マーク、本棚タブの「♡だけ」フィルタ、ライブラリタブの「お気に入りの本」
   /// セクションで使う。
   Future<void> toggleFavorite(String bookId) async {
     final book = _repository.findById(bookId);
@@ -197,6 +198,49 @@ class BookListNotifier extends StateNotifier<List<Book>> {
     await _repository.save(
       book.copyWith(isFavorite: !book.isFavorite),
     );
+    _load();
+  }
+
+  /// 本のタグ一覧を置き換える（W12 で追加）。
+  /// 重複は除き、空文字列のタグは除外する。
+  Future<void> updateTags(String bookId, List<String> tags) async {
+    final book = _repository.findById(bookId);
+    if (book == null) return;
+    final cleaned = tags
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    await _repository.save(book.copyWith(tags: cleaned));
+    _load();
+  }
+
+  /// 指定したタグ名を全本から削除する（W12 で追加、タグ管理画面の削除用）。
+  Future<void> removeTagFromAllBooks(String tag) async {
+    final books = _repository.getAll();
+    for (final book in books) {
+      if (book.tags.contains(tag)) {
+        final newTags = book.tags.where((t) => t != tag).toList();
+        await _repository.save(book.copyWith(tags: newTags));
+      }
+    }
+    _load();
+  }
+
+  /// タグをリネームする（W12 で追加、全本の tags を一括書き換え）。
+  Future<void> renameTag(String oldName, String newName) async {
+    final cleaned = newName.trim();
+    if (cleaned.isEmpty || cleaned == oldName) return;
+    final books = _repository.getAll();
+    for (final book in books) {
+      if (book.tags.contains(oldName)) {
+        final newTags = book.tags
+            .map((t) => t == oldName ? cleaned : t)
+            .toSet()
+            .toList(growable: false);
+        await _repository.save(book.copyWith(tags: newTags));
+      }
+    }
     _load();
   }
 }
@@ -238,6 +282,12 @@ List<Book> applyBookView(
   }
   if (settings.onlyFavorites) {
     result = result.where((b) => b.isFavorite);
+  }
+  if (settings.tagFilters.isNotEmpty) {
+    // 複数選択時は OR 条件（どれか 1 つでも持っていれば一致）
+    result = result.where(
+      (b) => b.tags.any(settings.tagFilters.contains),
+    );
   }
   final q = settings.searchQuery.trim().toLowerCase();
   if (q.isNotEmpty) {
