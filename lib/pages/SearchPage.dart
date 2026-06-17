@@ -74,15 +74,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     if (confirmed != true) return;
 
+    // W9: 本棚追加日時を記録（積読放置リマインダー R5 で使う）。
+    Book toSave = book.copyWith(addedAt: DateTime.now());
+
     // W7: ジャンル ID があれば API で名前を取得して Book.genre にセット。
     // 通信失敗や ID 解決失敗時は genre = null のまま登録（本登録は止めない）。
-    Book toSave = book;
-    final gid = book.genreId;
+    final gid = toSave.genreId;
     if (gid != null && gid.isNotEmpty) {
       try {
         final name = await _api.getGenreName(gid);
         if (name != null) {
-          toSave = book.copyWith(genre: name);
+          toSave = toSave.copyWith(genre: name);
         }
       } catch (_) {
         // 例外は黙殺 — ジャンル名取れなくても本は登録できる

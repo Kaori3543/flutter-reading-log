@@ -71,6 +71,22 @@ class Book {
   /// W7 以前に登録された本は null。
   final String? genreId;
 
+  /// 本棚に登録した日時（W9 で追加）。
+  ///
+  /// 検索結果から「本棚に追加」されたタイミングを記録する。積読放置
+  /// リマインダー（R5: 読みたい状態で 3 ヶ月以上経過した本を抽出）の
+  /// 起点として使う。W9 以前に登録された本は null（リマインダー対象外）。
+  final DateTime? addedAt;
+
+  /// 「この本の著者をお気に入り扱いにする」フラグ（W9 で追加）。
+  ///
+  /// ユーザーが本詳細画面で明示的に ON にした本の主著者だけが
+  /// 「お気に入り著者」として集計される（統計画面の TOP5、ホームタブの
+  /// 「お気に入り著者の他の作品」）。複数の本で同じ主著者を ON にしても、
+  /// 著者単位で集約されて 1 つにまとまる。
+  /// デフォルト false。
+  final bool isFavoriteAuthor;
+
   const Book({
     required this.id,
     this.isbn,
@@ -86,6 +102,8 @@ class Book {
     this.finishedAt,
     this.genre,
     this.genreId,
+    this.addedAt,
+    this.isFavoriteAuthor = false,
   });
 
   /// 一部のフィールドだけ更新した新しい Book を返す。
@@ -105,6 +123,8 @@ class Book {
     DateTime? finishedAt,
     String? genre,
     String? genreId,
+    DateTime? addedAt,
+    bool? isFavoriteAuthor,
   }) {
     return Book(
       id: id ?? this.id,
@@ -121,6 +141,8 @@ class Book {
       finishedAt: finishedAt ?? this.finishedAt,
       genre: genre ?? this.genre,
       genreId: genreId ?? this.genreId,
+      addedAt: addedAt ?? this.addedAt,
+      isFavoriteAuthor: isFavoriteAuthor ?? this.isFavoriteAuthor,
     );
   }
 
@@ -145,6 +167,8 @@ class Book {
       'finishedAt': finishedAt?.toIso8601String(),
       'genre': genre,
       'genreId': genreId,
+      'addedAt': addedAt?.toIso8601String(),
+      'isFavoriteAuthor': isFavoriteAuthor,
     };
   }
 
@@ -176,6 +200,10 @@ class Book {
           : null,
       genre: map['genre'] as String?,
       genreId: map['genreId'] as String?,
+      addedAt: map['addedAt'] != null
+          ? DateTime.parse(map['addedAt'] as String)
+          : null,
+      isFavoriteAuthor: map['isFavoriteAuthor'] as bool? ?? false,
     );
   }
 

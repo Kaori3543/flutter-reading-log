@@ -75,13 +75,15 @@ class _BookDetailSheetContentState
 
     setState(() => _isAdding = true);
 
+    // W9: 本棚追加日時を記録（積読放置リマインダー R5 で使う）。
+    Book toSave = widget.book.copyWith(addedAt: DateTime.now());
+
     // ジャンル名取得（失敗時は genre = null のまま登録、本登録自体は止めない）
-    Book toSave = widget.book;
-    final gid = widget.book.genreId;
+    final gid = toSave.genreId;
     if (gid != null && gid.isNotEmpty) {
       try {
         final name = await widget.api.getGenreName(gid);
-        if (name != null) toSave = widget.book.copyWith(genre: name);
+        if (name != null) toSave = toSave.copyWith(genre: name);
       } catch (_) {
         // 黙殺
       }
