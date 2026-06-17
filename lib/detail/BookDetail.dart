@@ -17,7 +17,9 @@ import 'package:sample/pages/ReviewEditPage.dart';
 import '../models/book.dart';
 import '../models/review.dart';
 import '../providers/book_list_provider.dart';
+import '../providers/custom_tags_provider.dart';
 import '../providers/review_list_provider.dart';
+import '../services/tag_calculator.dart';
 
 class BookDetail extends ConsumerStatefulWidget {
   final Book book;
@@ -178,6 +180,8 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                 ],
               ),
             ],
+            const SizedBox(height: 8),
+            _tagsSection(book), // W12: タグ表示 + 編集
             const SizedBox(height: 20),
             _statusEditor(book),
             const SizedBox(height: 16),
@@ -230,6 +234,91 @@ class _BookDetailState extends ConsumerState<BookDetail> {
       tag: 'cover-${book.id}',
       child: image,
     );
+  }
+
+  /// タグ表示 + 編集ボタン（W12）。
+  /// タグなしの本では「+ タグを追加」リンクだけを出す。
+  Widget _tagsSection(Book book) {
+    if (book.tags.isEmpty) {
+      return Row(
+        children: [
+          const Icon(Icons.local_offer_outlined,
+              size: 14, color: Colors.black45),
+          const SizedBox(width: 4),
+          TextButton(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              minimumSize: const Size(0, 0),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: () => _openTagEditor(book),
+            child: const Text('+ タグを追加',
+                style: TextStyle(fontSize: 12, color: Colors.black54)),
+          ),
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Icon(Icons.local_offer_outlined,
+            size: 14, color: Colors.black45),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: book.tags
+                .map((t) => Chip(
+                      label: Text('#$t', style: const TextStyle(fontSize: 11)),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      materialTapTargetSize:
+                          MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ))
+                .toList(),
+          ),
+        ),
+        IconButton(
+          tooltip: 'タグを編集',
+          icon: const Icon(Icons.edit, size: 18),
+          onPressed: () => _openTagEditor(book),
+        ),
+      ],
+    );
+  }
+
+  /// タグ編集ダイアログを開く（W12）。
+  /// 既存のタグ（本棚全体から集計）から複数選択 + 新規タグ作成 + テンプレート
+  /// から追加、ができる。OK で book.tags を保存。
+  Future<void> _openTagEditor(Book book) async {
+    final allBooks = ref.read(bookListProvider);
+    final customTags = ref.read(customTagsProvider);
+    // 本に紐付くタグと、ユーザーが定義済みのタグ（タグ管理画面で「+ 新規」
+    // した分）の両方を候補にする。これで「タグ管理で作って → 本詳細で
+    // 選んで付与」の流れが完結する。
+    final availableTags = <String>{
+      ...collectAllTags(allBooks).map((t) => t.name),
+      ...customTags,
+    };
+    final templates = buildTagTemplates(DateTime.now());
+
+    final result = await showDialog<List<String>>(
+      context: context,
+      builder: (ctx) => _TagEditorDialog(
+        initialTags: book.tags,
+        availableTags: availableTags,
+        templates: templates,
+      ),
+    );
+
+    if (result != null) {
+      await ref.read(bookListProvider.notifier).updateTags(book.id, result);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('タグを更新しました')),
+      );
+    }
   }
 
   Widget _statusEditor(Book book) {
@@ -555,6 +644,171 @@ class _BookDetailState extends ConsumerState<BookDetail> {
           );
         },
       ),
+    );
+  }
+}
+
+/// 本詳細で開くタグ編集ダイアログ（W12 で追加）。
+///
+/// - 既存のタグ（本棚全体から集計）を FilterChip で複数選択できる
+/// - 「+ 新規タグ」テキストフィールドで自由入力
+/// - 「テンプレートから追加」サブセクションで定義済みプリセットを 1 タップ
+/// - 「保存」で選択タグの最終リストを返す（Navigator.pop の戻り値）
+class _TagEditorDialog extends StatefulWidget {
+  final List<String> initialTags;
+  final Set<String> availableTags;
+  final List<String> templates;
+
+  const _TagEditorDialog({
+    required this.initialTags,
+    required this.availableTags,
+    required this.templates,
+  });
+
+  @override
+  State<_TagEditorDialog> createState() => _TagEditorDialogState();
+}
+
+class _TagEditorDialogState extends State<_TagEditorDialog> {
+  late Set<String> _selected;
+  final _newTagController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.initialTags.toSet();
+  }
+
+  @override
+  void dispose() {
+    _newTagController.dispose();
+    super.dispose();
+  }
+
+  void _toggleTag(String tag) {
+    setState(() {
+      if (_selected.contains(tag)) {
+        _selected.remove(tag);
+      } else {
+        _selected.add(tag);
+      }
+    });
+  }
+
+  void _addNewTag() {
+    final t = _newTagController.text.trim();
+    if (t.isEmpty) return;
+    setState(() {
+      _selected.add(t);
+      _newTagController.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 既存タグ + 選択中の新規タグ を合わせて FilterChip 化する候補。
+    final allCandidates = <String>{...widget.availableTags, ..._selected};
+    final sortedCandidates = allCandidates.toList()..sort();
+
+    // テンプレートのうちまだ候補に無いもの（候補にあれば下の FilterChip と
+    // 二重に出すのを避ける）。
+    final templatesToShow = widget.templates
+        .where((t) => !allCandidates.contains(t))
+        .toList(growable: false);
+
+    return AlertDialog(
+      title: const Text('タグを編集'),
+      content: SizedBox(
+        width: 320,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (sortedCandidates.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    'まだタグがありません。下から新規作成してください',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                )
+              else
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: sortedCandidates.map((tag) {
+                    final selected = _selected.contains(tag);
+                    return FilterChip(
+                      label: Text('#$tag'),
+                      selected: selected,
+                      onSelected: (_) => _toggleTag(tag),
+                    );
+                  }).toList(),
+                ),
+              const SizedBox(height: 16),
+              const Text(
+                '+ 新規タグ',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _newTagController,
+                      decoration: const InputDecoration(
+                        hintText: '例: 仕事用',
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                      ),
+                      onSubmitted: (_) => _addNewTag(),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  ElevatedButton(
+                    onPressed: _addNewTag,
+                    child: const Text('追加'),
+                  ),
+                ],
+              ),
+              if (templatesToShow.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'テンプレートから追加',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: templatesToShow.map((tag) {
+                    return ActionChip(
+                      avatar: const Icon(Icons.add, size: 14),
+                      label: Text(tag),
+                      onPressed: () {
+                        setState(() {
+                          _selected.add(tag);
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('キャンセル'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_selected.toList()),
+          child: const Text('保存'),
+        ),
+      ],
     );
   }
 }

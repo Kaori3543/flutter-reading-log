@@ -88,9 +88,10 @@ class _FakeReviewRepository implements ReviewRepository {
   }
 }
 
-/// テスト用の in-memory な SettingsRepository 実装（W9 で追加）。
+/// テスト用の in-memory な SettingsRepository 実装（W9 で追加、W12 拡張）。
 class _FakeSettingsRepository implements SettingsRepository {
   int? _goal;
+  List<String> _customTags = const [];
 
   @override
   int? get monthlyGoal => _goal;
@@ -98,6 +99,31 @@ class _FakeSettingsRepository implements SettingsRepository {
   @override
   Future<void> setMonthlyGoal(int? goal) async {
     _goal = goal;
+  }
+
+  @override
+  List<String> get customTagNames => _customTags;
+
+  @override
+  Future<void> addCustomTag(String name) async {
+    final t = name.trim();
+    if (t.isEmpty || _customTags.contains(t)) return;
+    _customTags = [..._customTags, t];
+  }
+
+  @override
+  Future<void> removeCustomTag(String name) async {
+    _customTags = _customTags.where((t) => t != name).toList();
+  }
+
+  @override
+  Future<void> renameCustomTag(String oldName, String newName) async {
+    final t = newName.trim();
+    if (t.isEmpty || t == oldName) return;
+    _customTags = _customTags
+        .map((x) => x == oldName ? t : x)
+        .toSet()
+        .toList(growable: false);
   }
 }
 

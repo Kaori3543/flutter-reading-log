@@ -91,10 +91,19 @@ class Book {
   ///
   /// 著者単位の [isFavoriteAuthor] と独立した、本単体のブックマーク。
   /// 本詳細画面の♥ボタンでオン / オフを切替。
-  /// 本棚タブのフィルタ「♡だけ」、本棚カード右上の♥マーク、ホームタブの
-  /// 「お気に入りの本」セクションで使う。
+  /// 本棚タブのフィルタ「♡だけ」、本棚カード右上の♥マーク、ライブラリ
+  /// タブの「お気に入りの本」セクションで使う。
   /// デフォルト false。
   final bool isFavorite;
+
+  /// ユーザー定義タグのリスト（W12 で追加）。
+  ///
+  /// Apple Music のプレイリスト的に、自分で名前を付けたタグを複数付けられる。
+  /// 例: ["2026年に読んだ", "仕事用", "再読リスト"]。
+  /// ライブラリタブ（W12 で新規追加）でタグ一覧 → 該当本リストへの導線、
+  /// および本棚タブで「タグで絞り込み」する際に使う。
+  /// デフォルトは空リスト（タグなし）。
+  final List<String> tags;
 
   const Book({
     required this.id,
@@ -114,6 +123,7 @@ class Book {
     this.addedAt,
     this.isFavoriteAuthor = false,
     this.isFavorite = false,
+    this.tags = const [],
   });
 
   /// 一部のフィールドだけ更新した新しい Book を返す。
@@ -136,6 +146,7 @@ class Book {
     DateTime? addedAt,
     bool? isFavoriteAuthor,
     bool? isFavorite,
+    List<String>? tags,
   }) {
     return Book(
       id: id ?? this.id,
@@ -155,6 +166,7 @@ class Book {
       addedAt: addedAt ?? this.addedAt,
       isFavoriteAuthor: isFavoriteAuthor ?? this.isFavoriteAuthor,
       isFavorite: isFavorite ?? this.isFavorite,
+      tags: tags ?? this.tags,
     );
   }
 
@@ -182,6 +194,7 @@ class Book {
       'addedAt': addedAt?.toIso8601String(),
       'isFavoriteAuthor': isFavoriteAuthor,
       'isFavorite': isFavorite,
+      'tags': tags,
     };
   }
 
@@ -218,6 +231,10 @@ class Book {
           : null,
       isFavoriteAuthor: map['isFavoriteAuthor'] as bool? ?? false,
       isFavorite: map['isFavorite'] as bool? ?? false,
+      tags: (map['tags'] as List?)
+              ?.map((e) => e as String)
+              .toList(growable: false) ??
+          const [],
     );
   }
 
