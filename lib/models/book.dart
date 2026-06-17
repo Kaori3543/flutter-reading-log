@@ -87,6 +87,15 @@ class Book {
   /// デフォルト false。
   final bool isFavoriteAuthor;
 
+  /// 「この本自身をお気に入りに登録する」フラグ（W11 で追加）。
+  ///
+  /// 著者単位の [isFavoriteAuthor] と独立した、本単体のブックマーク。
+  /// 本詳細画面の♥ボタンでオン / オフを切替。
+  /// 本棚タブのフィルタ「♡だけ」、本棚カード右上の♥マーク、ホームタブの
+  /// 「お気に入りの本」セクションで使う。
+  /// デフォルト false。
+  final bool isFavorite;
+
   const Book({
     required this.id,
     this.isbn,
@@ -104,6 +113,7 @@ class Book {
     this.genreId,
     this.addedAt,
     this.isFavoriteAuthor = false,
+    this.isFavorite = false,
   });
 
   /// 一部のフィールドだけ更新した新しい Book を返す。
@@ -125,6 +135,7 @@ class Book {
     String? genreId,
     DateTime? addedAt,
     bool? isFavoriteAuthor,
+    bool? isFavorite,
   }) {
     return Book(
       id: id ?? this.id,
@@ -143,6 +154,7 @@ class Book {
       genreId: genreId ?? this.genreId,
       addedAt: addedAt ?? this.addedAt,
       isFavoriteAuthor: isFavoriteAuthor ?? this.isFavoriteAuthor,
+      isFavorite: isFavorite ?? this.isFavorite,
     );
   }
 
@@ -169,6 +181,7 @@ class Book {
       'genreId': genreId,
       'addedAt': addedAt?.toIso8601String(),
       'isFavoriteAuthor': isFavoriteAuthor,
+      'isFavorite': isFavorite,
     };
   }
 
@@ -204,6 +217,7 @@ class Book {
           ? DateTime.parse(map['addedAt'] as String)
           : null,
       isFavoriteAuthor: map['isFavoriteAuthor'] as bool? ?? false,
+      isFavorite: map['isFavorite'] as bool? ?? false,
     );
   }
 
