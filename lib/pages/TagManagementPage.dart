@@ -46,7 +46,6 @@ class TagManagementPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('タグ管理'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateTagDialog(context, ref),

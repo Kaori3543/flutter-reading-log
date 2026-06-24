@@ -122,7 +122,6 @@ class _ReviewEditPageState extends ConsumerState<ReviewEditPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditMode ? 'レビュー編集' : 'レビュー追加'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           if (_isEditMode)
             IconButton(

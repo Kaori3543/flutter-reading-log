@@ -114,7 +114,6 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('発見'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 12),

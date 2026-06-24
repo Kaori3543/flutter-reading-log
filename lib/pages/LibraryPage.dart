@@ -47,7 +47,6 @@ class LibraryPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ライブラリ'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
