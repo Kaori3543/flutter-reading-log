@@ -99,7 +99,6 @@ class _BookshelfPageState extends ConsumerState<BookshelfPage>
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: _isSearching
             ? TextField(
                 controller: _searchController,
@@ -195,7 +194,7 @@ class _BookshelfPageState extends ConsumerState<BookshelfPage>
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       color: Theme.of(context)
           .colorScheme
-          .inversePrimary
+          .primaryContainer
           .withValues(alpha: 0.4),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,

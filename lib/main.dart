@@ -56,28 +56,30 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  /// メインカラー（W12 → UI/UX 改善で決定）。
+  /// "warm taupe"：落ち着いたグレージュ系の茶。上品で目に優しい。
+  static const Color _seedColor = Color(0xFF5E4C2D);
+
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6B4423)),
+        colorScheme: ColorScheme.fromSeed(seedColor: _seedColor),
+        // AppBar はメインカラーをそのまま背景に使う（白文字）。
+        // Material 3 の inversePrimary は seed の補色相になるが、本アプリでは
+        // 「選んだメインカラー = 上部の色」が直感的なため、明示指定で上書き。
+        appBarTheme: const AppBarTheme(
+          backgroundColor: _seedColor,
+          foregroundColor: Colors.white,
+          iconTheme: IconThemeData(color: Colors.white),
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ),
       //home: const MyHomePage(title: 'Flutter Demo Home Page'),
       //home: HomePage(),

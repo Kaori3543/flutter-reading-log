@@ -23,7 +23,6 @@ class TagBooksPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('#$tag'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: tagged.isEmpty
           ? const Center(

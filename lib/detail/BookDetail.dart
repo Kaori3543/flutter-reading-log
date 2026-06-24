@@ -135,7 +135,6 @@ class _BookDetailState extends ConsumerState<BookDetail> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('本の詳細'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_outline),

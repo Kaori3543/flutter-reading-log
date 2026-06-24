@@ -66,7 +66,6 @@ class _StatsPageState extends ConsumerState<StatsPage>
     return Scaffold(
       appBar: AppBar(
         title: const Text('統計'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         bottom: TabBar(
           controller: _tabController,
           tabs: _periods.map((p) => Tab(text: p.label)).toList(),
