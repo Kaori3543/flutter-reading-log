@@ -206,7 +206,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
         height: 220,
         color: Colors.grey.shade300,
         child: const Center(
-          child: Icon(Icons.book, size: 80, color: Colors.black54),
+          child: Icon(Icons.book_outlined, size: 80, color: Colors.black54),
         ),
       );
     } else {
@@ -280,7 +280,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
         ),
         IconButton(
           tooltip: 'タグを編集',
-          icon: const Icon(Icons.edit, size: 18),
+          icon: const Icon(Icons.edit_outlined, size: 18),
           onPressed: () => _openTagEditor(book),
         ),
       ],

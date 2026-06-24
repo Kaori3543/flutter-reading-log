@@ -187,7 +187,7 @@ class _BookDetailSheetContentState
         height: 170,
         color: Colors.grey.shade300,
         child: const Center(
-          child: Icon(Icons.book, size: 60, color: Colors.black54),
+          child: Icon(Icons.book_outlined, size: 60, color: Colors.black54),
         ),
       );
     }

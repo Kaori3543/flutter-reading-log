@@ -205,7 +205,7 @@ class _StatsPageState extends ConsumerState<StatsPage>
       padding: const EdgeInsets.symmetric(vertical: 48),
       child: Column(
         children: [
-          Icon(Icons.bar_chart, size: 64, color: Colors.grey.shade400),
+          Icon(Icons.bar_chart_outlined, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 12),
           const Text('この期間に読了した本がありません',
               style: TextStyle(fontSize: 14, color: Colors.black54)),
@@ -234,7 +234,7 @@ class _StatsPageState extends ConsumerState<StatsPage>
             '期間内の完読',
             '${stats.totalFinished}',
             '冊',
-            Icons.menu_book,
+            Icons.menu_book_outlined,
           ),
         ),
         const SizedBox(width: 12),
