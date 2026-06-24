@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'MainPageWidget.dart';
 import 'providers/book_list_provider.dart';
@@ -60,25 +61,80 @@ class MyApp extends StatelessWidget {
   /// "warm taupe"：落ち着いたグレージュ系の茶。上品で目に優しい。
   static const Color _seedColor = Color(0xFF5E4C2D);
 
+  /// 本文系テキストの基本色。真っ黒 (#000) を避けて少し柔らかい濃グレー。
+  static const Color _bodyColor = Color(0xFF1A1A1A);
+
+  /// 補足系テキスト（サブタイトル等）の色。
+  static const Color _subtleColor = Color(0xFF666666);
+
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    // 「上品・大人っぽい」雰囲気のために以下を組み合わせる:
+    //   - 見出し系（display/headline/title）: 明朝（Noto Serif JP）
+    //     本の組版に近づけて文学的な印象を出す
+    //   - 本文系（body/label）: ゴシック（Noto Sans JP）
+    //     長文（レビュー等）の可読性を保つ
+    //   - 文字色は #1A1A1A（濃グレー）でコントラストを少し抑え柔らかく
+    final headlineFont = GoogleFonts.notoSerifJpTextTheme();
+    final bodyFont = GoogleFonts.notoSansJpTextTheme();
+    final textTheme = TextTheme(
+      displayLarge: headlineFont.displayLarge?.copyWith(color: _bodyColor),
+      displayMedium: headlineFont.displayMedium?.copyWith(color: _bodyColor),
+      displaySmall: headlineFont.displaySmall?.copyWith(color: _bodyColor),
+      headlineLarge: headlineFont.headlineLarge?.copyWith(color: _bodyColor),
+      headlineMedium:
+          headlineFont.headlineMedium?.copyWith(color: _bodyColor),
+      headlineSmall: headlineFont.headlineSmall?.copyWith(color: _bodyColor),
+      titleLarge: headlineFont.titleLarge?.copyWith(
+        color: _bodyColor,
+        fontWeight: FontWeight.w500,
+      ),
+      titleMedium: headlineFont.titleMedium?.copyWith(color: _bodyColor),
+      titleSmall: headlineFont.titleSmall?.copyWith(color: _bodyColor),
+      bodyLarge: bodyFont.bodyLarge?.copyWith(color: _bodyColor, height: 1.6),
+      bodyMedium: bodyFont.bodyMedium?.copyWith(color: _bodyColor, height: 1.6),
+      bodySmall: bodyFont.bodySmall?.copyWith(color: _subtleColor, height: 1.5),
+      labelLarge: bodyFont.labelLarge?.copyWith(color: _bodyColor),
+      labelMedium: bodyFont.labelMedium?.copyWith(color: _bodyColor),
+      labelSmall: bodyFont.labelSmall?.copyWith(color: _subtleColor),
+    );
+
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: _seedColor),
+        textTheme: textTheme,
         // AppBar はメインカラーをそのまま背景に使う（白文字）。
-        // Material 3 の inversePrimary は seed の補色相になるが、本アプリでは
-        // 「選んだメインカラー = 上部の色」が直感的なため、明示指定で上書き。
-        appBarTheme: const AppBarTheme(
+        // タイトルは明朝にして本らしい上品さを出す。
+        appBarTheme: AppBarTheme(
           backgroundColor: _seedColor,
           foregroundColor: Colors.white,
-          iconTheme: IconThemeData(color: Colors.white),
-          titleTextStyle: TextStyle(
+          iconTheme: const IconThemeData(color: Colors.white),
+          titleTextStyle: GoogleFonts.notoSerifJp(
             color: Colors.white,
             fontSize: 20,
             fontWeight: FontWeight.w500,
+            letterSpacing: 0.5,
           ),
+        ),
+        // カードのシャドウを控えめに（elevation 1）+ 角丸を 8 で統一
+        cardTheme: CardThemeData(
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        ),
+        // 区切り線を細く・薄く
+        dividerTheme: const DividerThemeData(
+          thickness: 0.5,
+          space: 24,
+        ),
+        // ListTile の文字色を明示
+        listTileTheme: const ListTileThemeData(
+          textColor: _bodyColor,
+          iconColor: _subtleColor,
         ),
       ),
       //home: const MyHomePage(title: 'Flutter Demo Home Page'),

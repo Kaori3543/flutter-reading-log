@@ -330,7 +330,7 @@ class _RankingCard extends StatelessWidget {
         height: 160,
         color: Colors.grey.shade300,
         child: const Center(
-          child: Icon(Icons.book, size: 40, color: Colors.black54),
+          child: Icon(Icons.book_outlined, size: 40, color: Colors.black54),
         ),
       );
     }

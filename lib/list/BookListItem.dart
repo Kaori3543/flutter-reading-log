@@ -22,13 +22,20 @@ class BookListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // UI/UX: 上品な雰囲気にするため、強めの灰色シャドウを薄く控えめなものに変更。
     return Container(
-      margin: const EdgeInsets.all(10),
-      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         color: Colors.white,
-        boxShadow: const [BoxShadow(color: Colors.grey, blurRadius: 3)],
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000), // black 8%
+            blurRadius: 6,
+            offset: Offset(0, 1),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -36,17 +43,20 @@ class BookListItem extends StatelessWidget {
           Stack(
             clipBehavior: Clip.none,
             children: [
+              // 表紙画像コンテナ。輪郭は細い線で控えめに。
               Container(
                 width: 100,
                 height: 100,
-                margin: const EdgeInsets.only(right: 10),
+                margin: const EdgeInsets.only(right: 12),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(1),
+                  borderRadius: BorderRadius.circular(2),
                   color: Colors.white,
-                  boxShadow: const [
-                    BoxShadow(color: Colors.grey, blurRadius: 1),
-                  ],
+                  border: Border.all(
+                    color: const Color(0x14000000),
+                    width: 0.5,
+                  ),
                 ),
+                clipBehavior: Clip.antiAlias,
                 child: _imageWidget(),
               ),
               if (book.isFavorite)
@@ -95,7 +105,7 @@ class BookListItem extends StatelessWidget {
       image = Container(
         color: Colors.grey.shade300,
         child: const Center(
-          child: Icon(Icons.book, size: 40, color: Colors.black54),
+          child: Icon(Icons.book_outlined, size: 40, color: Colors.black54),
         ),
       );
     } else {
