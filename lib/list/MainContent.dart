@@ -1,118 +1,56 @@
 import 'package:flutter/material.dart';
 import '../models/book.dart';
+import '../theme/app_theme.dart';
 
-/// 本棚のカードの「右側」コンテンツ。
-/// 旧クーポン UI 雛形では「タイトル」「2021/07/21」が固定文字列だったが、
-/// W1 で Book モデルから値を受け取って表示する形に変更。
+/// 本棚のカード「右側」（表紙の右）に表示する本情報。
+/// UI 改修: 日付・ボタンを撤去し、タイトルを大きめ・可読性重視に。
+/// 「詳細を見る」ボタンは呼び出し側 (BookListItem) が右端に配置する。
 class MainContent extends StatelessWidget {
   final Book book;
-  final VoidCallback onPressed;
 
   const MainContent({
     super.key,
     required this.book,
-    required this.onPressed,
   });
-
-  /// カードに表示する日付。
-  /// 読了日 → 読み始め日 → 「未読」の優先順位で決定する。
-  String _displayDate() {
-    final dt = book.finishedAt ?? book.startedAt;
-    if (dt == null) return '未読';
-    final y = dt.year.toString();
-    final m = dt.month.toString().padLeft(2, '0');
-    final d = dt.day.toString().padLeft(2, '0');
-    return '$y/$m/$d';
-  }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          height: 20,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.all(2),
-              child: FittedBox(
-                fit: BoxFit.contain,
-                child: Text(
-                  book.title,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    decoration: TextDecoration.none,
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
-              ),
-            ),
+        // タイトル: 明朝 + 太字 + 大きめ (titleLarge)。2 行まで。
+        Text(
+          book.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            height: 1.3,
+            color: AppColors.fg,
           ),
         ),
-        Expanded(
-          child: Container(
-            color: Colors.grey.shade300,
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '${book.author}\n${book.publisher ?? ""}',
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontSize: 11,
-                ),
-              ),
-            ),
+        const SizedBox(height: 8),
+        // 著者
+        Text(
+          book.author,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: AppColors.mutedFg,
           ),
         ),
-        SizedBox(
-          height: 20,
-          child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                ElevatedButton(
-                  onPressed: onPressed,
-                  style: ButtonStyle(
-                    backgroundColor:
-                        WidgetStateProperty.all<Color>(Colors.red),
-                    foregroundColor:
-                        WidgetStateProperty.all<Color>(Colors.white),
-                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(5.0),
-                        side: const BorderSide(color: Colors.red),
-                      ),
-                    ),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(2),
-                    child: FittedBox(
-                      fit: BoxFit.contain,
-                      child: Text('詳細を見る'),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 5),
-                  child: FittedBox(
-                    fit: BoxFit.fitHeight,
-                    child: Text(
-                      _displayDate(),
-                      style: const TextStyle(
-                        color: Colors.black,
-                        decoration: TextDecoration.none,
-                        fontWeight: FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+        // 出版社 (あれば)
+        if ((book.publisher ?? '').isNotEmpty)
+          Text(
+            book.publisher!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.mutedFg,
             ),
           ),
-        ),
       ],
     );
   }

@@ -9,6 +9,7 @@ import 'providers/review_list_provider.dart';
 import 'services/book_repository.dart';
 import 'services/review_repository.dart';
 import 'services/settings_repository.dart';
+import 'theme/app_theme.dart';
 
 
 /*
@@ -57,15 +58,14 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  /// メインカラー（W12 → UI/UX 改善で決定）。
-  /// "warm taupe"：落ち着いたグレージュ系の茶。上品で目に優しい。
-  static const Color _seedColor = Color(0xFF5E4C2D);
+  /// メインカラー（本詳細画面 Figma 準拠に統一）。
+  static const Color _seedColor = AppColors.primary;
 
-  /// 本文系テキストの基本色。真っ黒 (#000) を避けて少し柔らかい濃グレー。
-  static const Color _bodyColor = Color(0xFF1A1A1A);
+  /// 本文系テキストの基本色。
+  static const Color _bodyColor = AppColors.fg;
 
   /// 補足系テキスト（サブタイトル等）の色。
-  static const Color _subtleColor = Color(0xFF666666);
+  static const Color _subtleColor = AppColors.mutedFg;
 
   // This widget is the root of your application.
   @override
@@ -102,20 +102,38 @@ class MyApp extends StatelessWidget {
 
     return MaterialApp(
       title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: _seedColor),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: _seedColor,
+          primary: AppColors.primary,
+          onPrimary: AppColors.primaryFg,
+          secondary: AppColors.secondary,
+          onSecondary: AppColors.secondaryFg,
+          surface: AppColors.bg,
+          onSurface: AppColors.fg,
+        ),
+        scaffoldBackgroundColor: AppColors.bg,
         textTheme: textTheme,
-        // AppBar はメインカラーをそのまま背景に使う（白文字）。
-        // タイトルは明朝にして本らしい上品さを出す。
+        // AppBar は本詳細のヘッダーと揃えたダーク茶 (#3A2A1E) + 白文字。
+        // タイトル・アイコンは Noto Sans JP / w500 / 白 60% で統一 (本詳細と同じ)。
         appBarTheme: AppBarTheme(
-          backgroundColor: _seedColor,
-          foregroundColor: Colors.white,
-          iconTheme: const IconThemeData(color: Colors.white),
-          titleTextStyle: GoogleFonts.notoSerifJp(
-            color: Colors.white,
-            fontSize: 20,
+          backgroundColor: AppColors.headerBg,
+          foregroundColor: Colors.white.withValues(alpha: 0.7),
+          iconTheme: IconThemeData(
+            color: Colors.white.withValues(alpha: 0.7),
+            size: 20,
+          ),
+          actionsIconTheme: IconThemeData(
+            color: Colors.white.withValues(alpha: 0.7),
+            size: 20,
+          ),
+          centerTitle: true,
+          titleTextStyle: GoogleFonts.notoSansJp(
+            color: Colors.white.withValues(alpha: 0.6),
+            fontSize: 15,
             fontWeight: FontWeight.w500,
-            letterSpacing: 0.5,
+            letterSpacing: 1.2,
           ),
         ),
         // カードのシャドウを控えめに（elevation 1）+ 角丸を 8 で統一
