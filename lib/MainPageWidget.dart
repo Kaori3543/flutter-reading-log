@@ -1,12 +1,8 @@
-/// アプリのルートウィジェット（W12 で 5 タブ構成に拡張）。
+/// アプリのルートウィジェット（5 タブ構成）。
 ///
-/// W1〜W6: AppBar + 本棚画面の全機能をここに集約していた
-/// W7: 機能ごとにページを分け、BottomNavigationBar で切替（本棚 / 統計）
-/// W8: 「発見」タブを追加（楽天売れ筋ランキング）
-/// W9: 「ホーム」タブを追加（ダッシュボード: 目標 / リマインダー / おすすめ）
-/// W12: 「ライブラリ」タブを追加（お気に入り本 + タグ）。Apple Music 風に
-///      「自分でまとめた分類」を集約する場所。W11 のお気に入り本もここに集約。
-/// IndexedStack で 5 ページの State を保持する。
+/// タブ: ホーム / 本棚 / ライブラリ / 発見 / 統計
+/// IndexedStack で 5 ページの State を保持。
+/// 下部ナビゲーションはアクティブ時に accent pill を表示するカスタムバー。
 library;
 
 import 'package:flutter/material.dart';
@@ -15,6 +11,7 @@ import 'pages/DiscoverPage.dart';
 import 'pages/HomePage.dart';
 import 'pages/LibraryPage.dart';
 import 'pages/StatsPage.dart';
+import 'theme/app_theme.dart';
 
 class MainPageWidget extends StatefulWidget {
   const MainPageWidget({super.key});
@@ -22,6 +19,20 @@ class MainPageWidget extends StatefulWidget {
   @override
   State<MainPageWidget> createState() => _MainPageWidgetState();
 }
+
+class _NavTab {
+  final IconData icon;
+  final String label;
+  const _NavTab({required this.icon, required this.label});
+}
+
+const _tabs = <_NavTab>[
+  _NavTab(icon: Icons.home_outlined, label: 'ホーム'),
+  _NavTab(icon: Icons.menu_book_outlined, label: '本棚'),
+  _NavTab(icon: Icons.library_books_outlined, label: 'ライブラリ'),
+  _NavTab(icon: Icons.explore_outlined, label: '発見'),
+  _NavTab(icon: Icons.bar_chart_outlined, label: '統計'),
+];
 
 class _MainPageWidgetState extends State<MainPageWidget> {
   int _index = 0;
@@ -41,36 +52,58 @@ class _MainPageWidgetState extends State<MainPageWidget> {
         index: _index,
         children: _pages,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'ホーム',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book),
-            label: '本棚',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.library_books_outlined),
-            selectedIcon: Icon(Icons.library_books),
-            label: 'ライブラリ',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.explore_outlined),
-            selectedIcon: Icon(Icons.explore),
-            label: '発見',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: '統計',
-          ),
-        ],
+      bottomNavigationBar: _buildNavBar(),
+    );
+  }
+
+  Widget _buildNavBar() {
+    return Container(
+      height: 64,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: List.generate(_tabs.length, (i) {
+            final tab = _tabs[i];
+            final active = _index == i;
+            return Expanded(
+              child: InkWell(
+                onTap: () => setState(() => _index = i),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (active)
+                      Container(
+                        width: 48,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Icon(tab.icon,
+                            size: 17, color: AppColors.fg),
+                      )
+                    else
+                      Icon(tab.icon, size: 20, color: AppColors.mutedFg),
+                    const SizedBox(height: 4),
+                    Text(
+                      tab.label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color:
+                            active ? AppColors.fg : AppColors.mutedFg,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ),
       ),
     );
   }
