@@ -1,14 +1,11 @@
 /// ランキング/検索結果の本を「本棚に追加するか」決めるための BottomSheet（W8）。
 ///
 /// 発見タブのランキングカードをタップした時に表示する。
-/// 表紙・タイトル・著者・出版社・あらすじ・出版日を一覧し、「本棚に追加」
+/// 表紙・タイトル・著者・出版社・あらすじを一覧し、「本棚に追加」
 /// ボタンで hive 保存 + ジャンル名解決まで行う。
 ///
-/// 設計メモ:
-///   - 楽天 API の itemCaption（あらすじ）は 100 〜 数百文字あるので、最大 8 行
-///     程度に制限してその先はスクロール
-///   - 既に本棚に登録済みの本は「登録済み」のラベルに変えて、再追加できない
-///     ようにする
+/// UI: AppColors パレット統一。タイトルは Noto Serif JP、あらすじ見出しは
+/// uppercase-tracking スタイル、追加ボタンは primary pill。
 library;
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -17,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/book.dart';
 import '../providers/book_list_provider.dart';
 import '../services/rakuten_api.dart';
+import '../theme/app_theme.dart';
 
 /// BottomSheet を開くヘルパー。
 ///
@@ -35,6 +33,10 @@ Future<void> showBookDetailSheet(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
+    backgroundColor: AppColors.bg,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
     builder: (ctx) => _BookDetailSheetContent(
       book: book,
       api: api,
@@ -99,66 +101,87 @@ class _BookDetailSheetContentState
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     // 既に登録済みかは provider を watch して反映（他経路で消えた・追加された
     // 場合でも sheet 内の表示が更新される）。
     final books = ref.watch(bookListProvider);
     final alreadyExists = books.any((b) => b.id == widget.book.id);
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.65,
+      initialChildSize: 0.7,
       minChildSize: 0.4,
       maxChildSize: 0.92,
       expand: false,
       builder: (context, scrollController) {
         return SingleChildScrollView(
           controller: scrollController,
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          padding: const EdgeInsets.fromLTRB(24, 4, 24, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // カバー: 影付きで中央に配置。
               Center(child: _cover()),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
+              // タイトル (明朝)。
               Text(
                 widget.book.title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.fg,
+                  height: 1.3,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
+              // 著者 (出版社)。
               Text(
                 widget.book.author +
                     (widget.book.publisher != null
                         ? '（${widget.book.publisher}）'
                         : ''),
-                style:
-                    const TextStyle(fontSize: 13, color: Colors.black54),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: AppColors.mutedFg),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               if (widget.caption != null && widget.caption!.isNotEmpty) ...[
+                // あらすじ見出し (uppercase-tracking の muted)。
                 const Text(
                   'あらすじ',
                   style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 2.2,
+                    color: AppColors.mutedFg,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 10),
                 Text(
                   widget.caption!,
-                  style: const TextStyle(fontSize: 13, height: 1.5),
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.6,
+                    color: AppColors.fg.withValues(alpha: 0.85),
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
               ],
+              // 本棚に追加 / 登録済み ボタン (pill primary)。
               SizedBox(
                 width: double.infinity,
                 child: alreadyExists
-                    ? OutlinedButton.icon(
+                    ? FilledButton.icon(
                         onPressed: null,
-                        icon: const Icon(Icons.check),
+                        icon: const Icon(Icons.check, size: 18),
                         label: const Text('本棚に登録済み'),
+                        style: FilledButton.styleFrom(
+                          disabledBackgroundColor: AppColors.secondary,
+                          disabledForegroundColor: AppColors.mutedFg,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
                       )
-                    : ElevatedButton.icon(
+                    : FilledButton.icon(
                         onPressed: _isAdding ? null : _addToBookshelf,
                         icon: _isAdding
                             ? const SizedBox(
@@ -166,10 +189,23 @@ class _BookDetailSheetContentState
                                 height: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
+                                  color: AppColors.primaryFg,
                                 ),
                               )
-                            : const Icon(Icons.add),
+                            : const Icon(Icons.add, size: 18),
                         label: Text(_isAdding ? '追加中...' : '本棚に追加'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.primaryFg,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          textStyle: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
                       ),
               ),
             ],
@@ -179,34 +215,49 @@ class _BookDetailSheetContentState
     );
   }
 
+  /// カバー画像。本棚と同じ立体感 (影付き) で表示。
   Widget _cover() {
     final url = widget.book.coverImageUrl;
+    final Widget image;
     if (url == null || url.isEmpty) {
-      return Container(
-        width: 120,
-        height: 170,
+      image = Container(
+        width: 130,
+        height: 185,
         color: Colors.grey.shade300,
         child: const Center(
           child: Icon(Icons.book_outlined, size: 60, color: Colors.black54),
         ),
       );
-    }
-    return CachedNetworkImage(
-      imageUrl: url,
-      height: 170,
-      fit: BoxFit.contain,
-      placeholder: (c, _) => const SizedBox(
-        height: 170,
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      errorWidget: (c, _, __) => Container(
-        width: 120,
-        height: 170,
-        color: Colors.grey.shade200,
-        child: const Center(
-          child: Icon(Icons.broken_image, color: Colors.grey),
+    } else {
+      image = CachedNetworkImage(
+        imageUrl: url,
+        height: 185,
+        fit: BoxFit.contain,
+        placeholder: (c, _) => const SizedBox(
+          height: 185,
+          child: Center(child: CircularProgressIndicator()),
         ),
+        errorWidget: (c, _, __) => Container(
+          width: 130,
+          height: 185,
+          color: Colors.grey.shade200,
+          child: const Center(
+            child: Icon(Icons.broken_image, color: Colors.grey),
+          ),
+        ),
+      );
+    }
+    return Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
+      child: image,
     );
   }
 }
