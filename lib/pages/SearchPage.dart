@@ -177,13 +177,23 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             child: Text('該当する本が見つかりませんでした'),
           );
         }
-        return ListView.builder(
+        return GridView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 240,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 0.68,
+          ),
           itemCount: books.length,
           itemBuilder: (context, index) {
             final book = books[index];
             return BookListItem(
               book: book,
               onPressed: () => _addBook(book),
+              actionLabel: '本棚に追加',
+              showStatusBadge: false,
+              showRating: false,
             );
           },
         );
