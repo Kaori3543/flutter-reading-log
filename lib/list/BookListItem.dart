@@ -21,6 +21,13 @@ class BookListItem extends StatelessWidget {
   /// ★評価を表示するか。検索結果 (未評価) では false 推奨。
   final bool showRating;
 
+  /// 「詳細を見る」ボタンを表示するか。ホームの縦カードでは false 推奨。
+  final bool showActionButton;
+
+  /// コンパクトモード: 表紙帯・カバー・フォント・余白を一段小さくする。
+  /// ホームの横スクロール用途で使う想定。
+  final bool compact;
+
   const BookListItem({
     super.key,
     required this.book,
@@ -28,6 +35,8 @@ class BookListItem extends StatelessWidget {
     this.actionLabel = '詳細を見る',
     this.showStatusBadge = true,
     this.showRating = true,
+    this.showActionButton = true,
+    this.compact = false,
   });
 
   @override
@@ -56,7 +65,7 @@ class BookListItem extends StatelessWidget {
 
   Widget _coverBand() {
     return Container(
-      height: 150,
+      height: compact ? 140 : 150,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -95,8 +104,8 @@ class BookListItem extends StatelessWidget {
         ..setEntry(3, 2, 0.002)
         ..rotateY(-0.07),
       child: Container(
-        width: 90,
-        height: 128,
+        width: compact ? 84 : 90,
+        height: compact ? 120 : 128,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(6),
           boxShadow: [
@@ -153,8 +162,21 @@ class BookListItem extends StatelessWidget {
 
   Widget _infoArea(BuildContext context) {
     final theme = Theme.of(context);
+    final pad = compact
+        ? const EdgeInsets.fromLTRB(10, 10, 10, 10)
+        : const EdgeInsets.fromLTRB(14, 14, 14, 12);
+    // タイトルフォントは本棚と統一 (Noto Serif JP / titleSmall / w600)。
+    final titleStyle = theme.textTheme.titleSmall?.copyWith(
+      fontWeight: FontWeight.w600,
+      color: AppColors.fg,
+      height: compact ? 1.25 : 1.3,
+    );
+    final subStyle = TextStyle(
+      fontSize: compact ? 11 : 12,
+      color: AppColors.mutedFg,
+    );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      padding: pad,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -162,51 +184,48 @@ class BookListItem extends StatelessWidget {
             book.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.fg,
-              height: 1.3,
-            ),
+            style: titleStyle,
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: compact ? 4 : 6),
           Text(
             book.author,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, color: AppColors.mutedFg),
+            style: subStyle,
           ),
-          if ((book.publisher ?? '').isNotEmpty)
+          if ((book.publisher ?? '').isNotEmpty && !compact)
             Text(
               book.publisher!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style:
-                  const TextStyle(fontSize: 12, color: AppColors.mutedFg),
+              style: subStyle,
             ),
           const Spacer(),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (showRating) _stars(),
-              const Spacer(),
-              FilledButton(
-                onPressed: onPressed,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: AppColors.primaryFg,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 0),
-                  minimumSize: const Size(0, 28),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  textStyle: const TextStyle(fontSize: 11),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(999),
+          if (showRating || showActionButton)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (showRating) _stars(),
+                const Spacer(),
+                if (showActionButton)
+                  FilledButton(
+                    onPressed: onPressed,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.primaryFg,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 0),
+                      minimumSize: const Size(0, 28),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textStyle: const TextStyle(fontSize: 11),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    child: Text(actionLabel),
                   ),
-                ),
-                child: Text(actionLabel),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );

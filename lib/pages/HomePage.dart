@@ -14,8 +14,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../detail/BookDetail.dart';
+import '../list/BookListItem.dart';
 import '../models/book.dart';
 import '../providers/book_list_provider.dart';
+import '../theme/app_theme.dart';
 import '../providers/reading_goal_provider.dart';
 import '../services/personalized_recommendations.dart';
 import '../services/rakuten_api.dart';
@@ -140,65 +142,142 @@ class _HomePageState extends ConsumerState<HomePage> {
     final pct = (goal != null && goal > 0)
         ? (thisMonth / goal).clamp(0.0, 1.0)
         : 0.0;
+    final theme = Theme.of(context);
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.flag_outlined, size: 18),
-                const SizedBox(width: 6),
-                const Text('今月の読書目標',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const Spacer(),
-                TextButton(
-                  onPressed: () => _editGoal(context, current: goal),
-                  child: Text(goal == null ? '目標を設定' : '変更'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (goal == null)
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ヘッダー行: アイコン + 見出し + 変更ボタン
+          Row(
+            children: [
+              const Icon(Icons.flag_outlined,
+                  size: 14, color: AppColors.accent),
+              const SizedBox(width: 8),
               const Text(
-                'まだ目標が設定されていません',
-                style: TextStyle(color: Colors.black54),
-              )
-            else ...[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '$thisMonth',
-                    style: const TextStyle(
-                        fontSize: 32, fontWeight: FontWeight.bold),
+                '今月の読書目標',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.fg,
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: () => _editGoal(context, current: goal),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary,
+                    borderRadius: BorderRadius.circular(999),
                   ),
-                  const SizedBox(width: 4),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(
-                      '/ $goal 冊（${(pct * 100).round()}%）',
-                      style: const TextStyle(
-                          fontSize: 14, color: Colors.black54),
+                  child: Text(
+                    goal == null ? '目標を設定' : '変更',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.mutedFg,
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: pct,
-                  minHeight: 8,
-                  backgroundColor: Colors.grey.shade200,
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          if (goal == null)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'まだ目標が設定されていません',
+                style: TextStyle(fontSize: 13, color: AppColors.mutedFg),
+              ),
+            )
+          else ...[
+            // 大きな数字 + 「/ N 冊」 + パーセントピル
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$thisMonth',
+                  style: theme.textTheme.displayMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.fg,
+                    height: 1.0,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    '/ $goal 冊',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.mutedFg,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '${(pct * 100).round()}%',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.mutedFg,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // グラデーションのプログレスバー (accent → #B8894E)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: Container(
+                height: 10,
+                color: AppColors.secondary,
+                child: FractionallySizedBox(
+                  widthFactor: pct.clamp(0.02, 1.0),
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [AppColors.accent, Color(0xFFB8894E)],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              pct >= 1.0
+                  ? '今月の目標を達成しました！'
+                  : 'あと ${goal - thisMonth} 冊で目標達成！今月も頑張りましょう。',
+              style: const TextStyle(fontSize: 12, color: AppColors.mutedFg),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -264,14 +343,14 @@ class _HomePageState extends ConsumerState<HomePage> {
       children: [
         _sectionHeader(title, icon, subtitle: subtitle, count: books.length),
         SizedBox(
-          height: 200,
+          height: 230,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: books.length,
             itemBuilder: (context, index) {
               final book = books[index];
-              return _bookCard(book, () {
+              return _homeBookCard(book, () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => BookDetail(book: book)),
                 );
@@ -284,27 +363,19 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Widget _bookCard(Book book, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 110,
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _cover(book, width: 110, height: 145),
-            const SizedBox(height: 6),
-            Text(book.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12)),
-            Text(book.author,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style:
-                    const TextStyle(fontSize: 10, color: Colors.black54)),
-          ],
+  /// 本棚と同じ縦カード意匠のコンパクト版（表紙 + タイトル + 著者のみ）。
+  Widget _homeBookCard(Book book, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: SizedBox(
+        width: 145,
+        child: BookListItem(
+          book: book,
+          onPressed: onTap,
+          compact: true,
+          showActionButton: false,
+          showRating: false,
+          showStatusBadge: false,
         ),
       ),
     );
@@ -373,75 +444,52 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  /// セクション見出し（UI/UX 改善 C 案）。
-  /// 左端の細い accent bar + アイコン + タイトル（明朝、textTheme.titleMedium
-  /// 由来）+ 件数（任意）+ 副題（任意）。
-  /// 見出しが整列して並ぶことで、リスト全体に「節」のリズムが生まれる。
+  /// セクション見出し (小さい accent アイコン + セミボールドタイトル)。
+  /// 副題はタイトル文字の下に muted で控えめに配置する。
   Widget _sectionHeader(String title, IconData icon,
       {String? subtitle, int? count}) {
-    final primary = Theme.of(context).colorScheme.primary;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // accent bar
-            Container(
-              width: 3,
-              margin: const EdgeInsets.only(right: 10, top: 2, bottom: 2),
-              decoration: BoxDecoration(
-                color: primary,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    children: [
-                      Icon(icon, size: 18, color: primary),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          title,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.2,
-                              ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (count != null) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          '($count)',
-                          style: const TextStyle(color: Colors.black54),
-                        ),
-                      ],
-                    ],
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 15, color: AppColors.accent),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.fg,
                   ),
-                  if (subtitle != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        subtitle,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.black54,
-                        ),
-                      ),
-                    ),
-                ],
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (count != null) ...[
+                const SizedBox(width: 6),
+                Text(
+                  '($count)',
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.mutedFg),
+                ),
+              ],
+            ],
+          ),
+          if (subtitle != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2, left: 23),
+              child: Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.mutedFg,
+                ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -451,71 +499,37 @@ class _HomePageState extends ConsumerState<HomePage> {
     required bool alreadyAdded,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 120,
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: SizedBox(
+        width: 145,
+        child: Stack(
           children: [
-            Stack(
-              children: [
-                _cover(book, width: 120, height: 160),
-                if (alreadyAdded)
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade600,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.check,
-                          size: 12, color: Colors.white),
-                    ),
-                  ),
-              ],
+            BookListItem(
+              book: book,
+              onPressed: onTap,
+              compact: true,
+              showActionButton: false,
+              showRating: false,
+              showStatusBadge: false,
             ),
-            const SizedBox(height: 6),
-            Text(book.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12)),
-            Text(book.author,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style:
-                    const TextStyle(fontSize: 10, color: Colors.black54)),
+            // 本棚に登録済みバッジ (カバー右上)。
+            if (alreadyAdded)
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade600,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check,
+                      size: 12, color: Colors.white),
+                ),
+              ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _cover(Book book, {required double width, required double height}) {
-    final url = book.coverImageUrl;
-    if (url == null || url.isEmpty) {
-      return Container(
-        width: width,
-        height: height,
-        color: Colors.grey.shade300,
-        child: const Center(
-          child: Icon(Icons.book_outlined, size: 40, color: Colors.black54),
-        ),
-      );
-    }
-    return Image.network(
-      url,
-      width: width,
-      height: height,
-      fit: BoxFit.cover,
-      errorBuilder: (c, _, __) => Container(
-        width: width,
-        height: height,
-        color: Colors.grey.shade200,
-        child: const Icon(Icons.broken_image, color: Colors.grey),
       ),
     );
   }
