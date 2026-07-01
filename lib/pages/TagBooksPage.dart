@@ -1,7 +1,7 @@
 /// 特定のタグが付いた本の一覧画面（W12 で新規追加）。
 ///
 /// ライブラリタブのタグをタップすると遷移する画面。
-/// 本棚タブと同じ BookListItem を縦に並べる。タップで本詳細へ。
+/// 本棚と同じ縦グリッドカードを敷き詰めて表示する。
 library;
 
 import 'package:flutter/material.dart';
@@ -34,7 +34,16 @@ class TagBooksPage extends ConsumerWidget {
                 ),
               ),
             )
-          : ListView.builder(
+          : GridView.builder(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              gridDelegate:
+                  const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 240,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.68,
+              ),
               itemCount: tagged.length,
               itemBuilder: (context, index) {
                 final book = tagged[index];
@@ -42,7 +51,8 @@ class TagBooksPage extends ConsumerWidget {
                   book: book,
                   onPressed: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => BookDetail(book: book)),
+                      MaterialPageRoute(
+                          builder: (_) => BookDetail(book: book)),
                     );
                   },
                 );
