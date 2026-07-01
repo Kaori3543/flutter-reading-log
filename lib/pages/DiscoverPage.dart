@@ -2,18 +2,19 @@
 ///
 /// 楽天 Books API の Search + sort=sales で「売れている順」を取得し、
 /// 全ジャンル + 人気の小説 + 人気のビジネス書 + 人気のコミックを
-/// 縦に 4 セクション並べる。各セクションは横スクロールで本のカードを
-/// 表示し、カードタップで BottomSheet 詳細 → 本棚に追加。
+/// 縦に 4 セクション並べる。各セクションは横スクロールで本棚と同じ
+/// 縦カードを表示、カードタップで BottomSheet 詳細 → 本棚に追加。
 library;
 
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../list/BookListItem.dart';
 import '../models/book.dart';
 import '../providers/book_list_provider.dart';
 import '../services/rakuten_api.dart';
+import '../theme/app_theme.dart';
 import '../widgets/BookDetailBottomSheet.dart';
 
 /// セクション定義: ヘッダタイトル + アイコン + 楽天 Books のジャンル ID。
@@ -116,7 +117,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
         title: const Text('発見'),
       ),
       body: ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.only(bottom: 24),
         itemCount: _sections.length,
         itemBuilder: (context, index) {
           final section = _sections[index];
@@ -124,6 +125,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
             section: section,
             future: _futures[section.booksGenreId]!,
             api: _api,
+            isLast: index == _sections.length - 1,
           );
         },
       ),
@@ -135,11 +137,13 @@ class _RankingSection extends ConsumerWidget {
   final _DiscoverSection section;
   final Future<List<RankingItem>> future;
   final RakutenApi api;
+  final bool isLast;
 
   const _RankingSection({
     required this.section,
     required this.future,
     required this.api,
+    required this.isLast,
   });
 
   @override
@@ -147,24 +151,29 @@ class _RankingSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // セクション見出し (ホームと同じ accent アイコン + セミボールド)。
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
           child: Row(
             children: [
-              Icon(section.icon, size: 18, color: Colors.black54),
-              const SizedBox(width: 6),
-              Text(
-                section.title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              Icon(section.icon, size: 15, color: AppColors.accent),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  section.title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.fg,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
         ),
         SizedBox(
-          height: 240,
+          height: 230,
           child: FutureBuilder<List<RankingItem>>(
             future: future,
             builder: (context, snapshot) {
@@ -178,8 +187,8 @@ class _RankingSection extends ConsumerWidget {
                     child: Text(
                       'ランキング取得に失敗しました\n${snapshot.error}',
                       textAlign: TextAlign.center,
-                      style:
-                          const TextStyle(color: Colors.red, fontSize: 12),
+                      style: const TextStyle(
+                          color: Colors.redAccent, fontSize: 12),
                     ),
                   ),
                 );
@@ -189,7 +198,7 @@ class _RankingSection extends ConsumerWidget {
                 return const Center(
                   child: Text(
                     '取得結果が空でした',
-                    style: TextStyle(color: Colors.black54),
+                    style: TextStyle(color: AppColors.mutedFg),
                   ),
                 );
               }
@@ -197,7 +206,11 @@ class _RankingSection extends ConsumerWidget {
             },
           ),
         ),
-        const Divider(height: 24),
+        if (!isLast)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Container(height: 1, color: AppColors.border),
+          ),
       ],
     );
   }
@@ -212,7 +225,7 @@ class _RankingSection extends ConsumerWidget {
 
     return ListView.builder(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
@@ -234,6 +247,8 @@ class _RankingSection extends ConsumerWidget {
   }
 }
 
+/// 発見タブのカード。本棚と同じ縦カード (BookListItem compact) をベースに、
+/// ランキングバッジと「本棚に登録済み」バッジを Stack で上に重ねる。
 class _RankingCard extends StatelessWidget {
   final int rank;
   final Book book;
@@ -251,104 +266,61 @@ class _RankingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 120,
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: SizedBox(
+        width: 145,
+        child: Stack(
           children: [
-            Stack(
-              children: [
-                _cover(),
-                Positioned(
-                  top: 4,
-                  left: 4,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: rank <= 3
-                          ? const Color(0xFF6B4423)
-                          : Colors.black54,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    child: Text(
-                      '$rank位',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+            BookListItem(
+              book: book,
+              compact: true,
+              showActionButton: false,
+              showRating: false,
+              showStatusBadge: false,
+              onPressed: onTap,
+            ),
+            // ランキングバッジ (カバー左上)。
+            Positioned(
+              top: 10,
+              left: 10,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: rank <= 3 ? AppColors.accent : Colors.black54,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$rank位',
+                  style: TextStyle(
+                    color: rank <= 3 ? AppColors.fg : Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                if (alreadyAdded)
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade600,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.check,
-                        size: 12,
-                        color: Colors.white,
-                      ),
-                    ),
+              ),
+            ),
+            // 本棚に登録済みバッジ (カバー右上)。
+            if (alreadyAdded)
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade600,
+                    shape: BoxShape.circle,
                   ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              book.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12),
-            ),
-            Text(
-              book.author,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 10, color: Colors.black54),
-            ),
+                  child: const Icon(
+                    Icons.check,
+                    size: 12,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _cover() {
-    final url = book.coverImageUrl;
-    if (url == null || url.isEmpty) {
-      return Container(
-        width: 120,
-        height: 160,
-        color: Colors.grey.shade300,
-        child: const Center(
-          child: Icon(Icons.book_outlined, size: 40, color: Colors.black54),
-        ),
-      );
-    }
-    return CachedNetworkImage(
-      imageUrl: url,
-      width: 120,
-      height: 160,
-      fit: BoxFit.cover,
-      placeholder: (c, _) => Container(
-        width: 120,
-        height: 160,
-        color: Colors.grey.shade100,
-      ),
-      errorWidget: (c, _, __) => Container(
-        width: 120,
-        height: 160,
-        color: Colors.grey.shade200,
-        child: const Icon(Icons.broken_image, color: Colors.grey),
       ),
     );
   }
