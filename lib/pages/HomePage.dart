@@ -103,6 +103,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               title: 'お気に入り著者「$topAuthor」の他の作品',
               icon: Icons.person_search,
               futureKey: 'author:$topAuthor',
+              subtitle: '本詳細で♡を付けた著者から',
             ),
           if (topGenreId != null)
             _recommendationSection(
@@ -110,6 +111,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               title: 'よく読むジャンルの売れ筋',
               icon: Icons.auto_awesome,
               futureKey: 'genre:$topGenreId',
+              subtitle: '完読した本のジャンルから',
             ),
           // 全部空のときの fallback メッセージ。
           // 本棚が空（新規ユーザー）か、本棚に本はあるがリマインダー条件を
@@ -282,18 +284,45 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  Widget _bookCard(Book book, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: 110,
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _cover(book, width: 110, height: 145),
+            const SizedBox(height: 6),
+            Text(book.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12)),
+            Text(book.author,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    const TextStyle(fontSize: 10, color: Colors.black54)),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// 楽天 API のおすすめセクション（横スクロール、Completer 連動）。
   Widget _recommendationSection(
     BuildContext context, {
     required String title,
     required IconData icon,
     required String futureKey,
+    String? subtitle,
   }) {
     final future = _recommendationFutures[futureKey];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader(title, icon),
+        _sectionHeader(title, icon, subtitle: subtitle),
         SizedBox(
           height: 230,
           child: future == null
@@ -344,59 +373,73 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  /// セクション見出し（UI/UX 改善 C 案）。
+  /// 左端の細い accent bar + アイコン + タイトル（明朝、textTheme.titleMedium
+  /// 由来）+ 件数（任意）+ 副題（任意）。
+  /// 見出しが整列して並ぶことで、リスト全体に「節」のリズムが生まれる。
   Widget _sectionHeader(String title, IconData icon,
       {String? subtitle, int? count}) {
+    final primary = Theme.of(context).colorScheme.primary;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 18, color: Colors.black54),
-              const SizedBox(width: 6),
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold)),
-              if (count != null) ...[
-                const SizedBox(width: 6),
-                Text('($count)',
-                    style: const TextStyle(color: Colors.black54)),
-              ],
-            ],
-          ),
-          if (subtitle != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(subtitle,
-                  style: const TextStyle(
-                      fontSize: 12, color: Colors.black54)),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _bookCard(Book book, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 110,
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _cover(book, width: 110, height: 145),
-            const SizedBox(height: 6),
-            Text(book.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12)),
-            Text(book.author,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style:
-                    const TextStyle(fontSize: 10, color: Colors.black54)),
+            // accent bar
+            Container(
+              width: 3,
+              margin: const EdgeInsets.only(right: 10, top: 2, bottom: 2),
+              decoration: BoxDecoration(
+                color: primary,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      Icon(icon, size: 18, color: primary),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.2,
+                              ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (count != null) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          '($count)',
+                          style: const TextStyle(color: Colors.black54),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (subtitle != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
