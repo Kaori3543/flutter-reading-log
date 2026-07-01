@@ -5,11 +5,9 @@
 ///   - 本に紐付くタグ（Book.tags から集計）
 ///   - 定義済みタグ（customTagsProvider、まだ本に付いていない 0 冊タグも含む）
 ///   - 両者を合算した一覧で表示（同名はマージ、冊数だけ更新）
-/// - 「+ 新規タグ」ボタンでタグ名を入力 → 定義済みタグに保存
-///   → 本詳細のタグ編集ダイアログにも候補として現れる
-/// - 各タグをリネーム / 削除（リネーム時は本に紐付くタグと定義済みタグ両方
-///   を一括更新、削除も同じ）
-/// - 「テンプレート」のサブセクションでよく使う名前を 1 タップで作成
+/// - 各タグの右端に「リネーム」「削除」の IconButton を並べる
+/// - 新規タグ作成 / テンプレートからの追加はライブラリ画面の「新規タグ」
+///   ボタンに集約
 library;
 
 import 'package:flutter/material.dart';
@@ -17,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/book_list_provider.dart';
 import '../providers/custom_tags_provider.dart';
 import '../services/tag_calculator.dart';
+import '../theme/app_theme.dart';
 import 'TagBooksPage.dart';
 
 class TagManagementPage extends ConsumerWidget {
@@ -27,7 +26,6 @@ class TagManagementPage extends ConsumerWidget {
     final books = ref.watch(bookListProvider);
     final usedTags = collectAllTags(books);
     final customTags = ref.watch(customTagsProvider);
-    final templates = buildTagTemplates(DateTime.now());
 
     // 本に紐付くタグ + 定義済みタグ をマージして表示。
     // 冊数は本に紐付くタグ側の集計を優先（0 冊ならカスタム由来）。
@@ -47,146 +45,79 @@ class TagManagementPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('タグ管理'),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreateTagDialog(context, ref),
-        icon: const Icon(Icons.add),
-        label: const Text('新規タグ'),
-      ),
-      body: ListView(
-        children: [
-          if (mergedTags.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(
+      body: mergedTags.isEmpty
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
                 child: Text(
-                  'まだタグがありません。右下の「+ 新規タグ」から作成、または本詳細の「+ タグを追加」から付けられます',
-                  style: TextStyle(color: Colors.black54),
+                  'まだタグがありません。\nライブラリの「新規タグ」ボタンから作成できます',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.mutedFg),
                 ),
               ),
             )
-          else
-            ...mergedTags.map((t) => ListTile(
-                  leading: const Icon(Icons.tag),
-                  title: Text(t.name),
-                  subtitle: Text(
-                    t.count > 0 ? '${t.count} 冊' : '0 冊（まだ本に付いていません）',
-                    style: TextStyle(
-                      color: t.count > 0 ? null : Colors.black45,
-                    ),
-                  ),
-                  onTap: t.count > 0
-                      ? () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => TagBooksPage(tag: t.name),
-                            ),
-                          );
-                        }
-                      : null,
-                  trailing: PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert),
-                    onSelected: (v) async {
-                      if (v == 'rename') {
-                        await _renameTag(context, ref, t.name);
-                      } else if (v == 'delete') {
-                        await _deleteTag(context, ref, t.name, t.count);
-                      }
-                    },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'rename', child: Text('リネーム')),
-                      PopupMenuItem(value: 'delete', child: Text('削除')),
-                    ],
-                  ),
-                )),
-          const Divider(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Row(
-              children: const [
-                Icon(Icons.bookmark_added_outlined, size: 18),
-                SizedBox(width: 6),
-                Text(
-                  'テンプレート',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
+          : ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: mergedTags.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.border,
+                indent: 16,
+                endIndent: 16,
+              ),
+              itemBuilder: (context, index) {
+                final t = mergedTags[index];
+                return _tagTile(context, ref, t);
+              },
             ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'タップでタグを作成します（本詳細のタグ編集にも候補として表示されます）',
-              style: TextStyle(fontSize: 12, color: Colors.black54),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: templates.map((tag) {
-                final exists = allTagNames.contains(tag);
-                return ActionChip(
-                  avatar: Icon(
-                    exists ? Icons.check_circle : Icons.add_circle_outline,
-                    size: 14,
-                    color: exists ? Colors.green : null,
-                  ),
-                  label: Text(tag, style: const TextStyle(fontSize: 12)),
-                  onPressed: exists
-                      ? null
-                      : () async {
-                          await ref
-                              .read(customTagsProvider.notifier)
-                              .addTag(tag);
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('「$tag」を追加しました')),
-                          );
-                        },
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
-  /// 「+ 新規タグ」ボタンから開くタグ作成ダイアログ。
-  Future<void> _showCreateTagDialog(
-      BuildContext context, WidgetRef ref) async {
-    final controller = TextEditingController();
-    final newName = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('新規タグを作成'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: '例: 仕事用',
-            border: OutlineInputBorder(),
-          ),
+  Widget _tagTile(BuildContext context, WidgetRef ref, TagCount t) {
+    return ListTile(
+      leading: const Icon(Icons.tag, color: AppColors.accent),
+      title: Text(
+        t.name,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: AppColors.fg,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('キャンセル'),
+      ),
+      subtitle: Text(
+        t.count > 0 ? '${t.count} 冊' : '0 冊（まだ本に付いていません）',
+        style: TextStyle(
+          fontSize: 12,
+          color: t.count > 0 ? AppColors.mutedFg : AppColors.mutedFg,
+        ),
+      ),
+      onTap: t.count > 0
+          ? () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => TagBooksPage(tag: t.name),
+                ),
+              );
+            }
+          : null,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, size: 20),
+            color: AppColors.mutedFg,
+            tooltip: 'リネーム',
+            onPressed: () => _renameTag(context, ref, t.name),
           ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: const Text('作成'),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 20),
+            color: Colors.redAccent,
+            tooltip: '削除',
+            onPressed: () => _deleteTag(context, ref, t.name, t.count),
           ),
         ],
       ),
-    );
-
-    if (newName == null || newName.isEmpty) return;
-    await ref.read(customTagsProvider.notifier).addTag(newName);
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('「$newName」を作成しました')),
     );
   }
 
