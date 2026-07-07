@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../detail/BookDetail.dart';
 import '../list/BookListItem.dart';
 import '../providers/book_list_provider.dart';
@@ -34,29 +35,42 @@ class TagBooksPage extends ConsumerWidget {
                 ),
               ),
             )
-          : GridView.builder(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              gridDelegate:
-                  const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 240,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.68,
+          : AnimationLimiter(
+              key: ValueKey('tag-$tag-${tagged.length}'),
+              child: GridView.builder(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                gridDelegate:
+                    const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 240,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.68,
+                ),
+                itemCount: tagged.length,
+                itemBuilder: (context, index) {
+                  final book = tagged[index];
+                  return AnimationConfiguration.staggeredGrid(
+                    position: index,
+                    columnCount: 3,
+                    duration: const Duration(milliseconds: 420),
+                    child: ScaleAnimation(
+                      scale: 0.92,
+                      child: FadeInAnimation(
+                        child: BookListItem(
+                          book: book,
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) => BookDetail(book: book)),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-              itemCount: tagged.length,
-              itemBuilder: (context, index) {
-                final book = tagged[index];
-                return BookListItem(
-                  book: book,
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => BookDetail(book: book)),
-                    );
-                  },
-                );
-              },
             ),
     );
   }

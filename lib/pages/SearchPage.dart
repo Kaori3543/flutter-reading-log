@@ -7,6 +7,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:sample/list/BookListItem.dart';
 import 'package:sample/models/book.dart';
 import 'package:sample/providers/book_list_provider.dart';
@@ -177,25 +178,38 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             child: Text('該当する本が見つかりませんでした'),
           );
         }
-        return GridView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 240,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 0.68,
+        return AnimationLimiter(
+          key: ValueKey('search-${books.length}'),
+          child: GridView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 240,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 0.68,
+            ),
+            itemCount: books.length,
+            itemBuilder: (context, index) {
+              final book = books[index];
+              return AnimationConfiguration.staggeredGrid(
+                position: index,
+                columnCount: 3,
+                duration: const Duration(milliseconds: 420),
+                child: ScaleAnimation(
+                  scale: 0.92,
+                  child: FadeInAnimation(
+                    child: BookListItem(
+                      book: book,
+                      onPressed: () => _addBook(book),
+                      actionLabel: '本棚に追加',
+                      showStatusBadge: false,
+                      showRating: false,
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
-          itemCount: books.length,
-          itemBuilder: (context, index) {
-            final book = books[index];
-            return BookListItem(
-              book: book,
-              onPressed: () => _addBook(book),
-              actionLabel: '本棚に追加',
-              showStatusBadge: false,
-              showRating: false,
-            );
-          },
         );
       },
     );

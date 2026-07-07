@@ -53,6 +53,10 @@ dependencies:
   firebase_auth: ^5.3.1
   cloud_firestore: ^5.4.4
   google_sign_in: ^6.2.1
+  # 発見/本棚/ホームのリスト表示にステガードなフェード+スライド演出を入れる。
+  # AnimationLimiter + AnimationConfiguration の組み合わせで、ListView/GridView
+  # の itemBuilder を包むだけで各カードが遅延ずれで登場する。
+  flutter_staggered_animations: ^1.1.1
 
 dev_dependencies:
   flutter_test:

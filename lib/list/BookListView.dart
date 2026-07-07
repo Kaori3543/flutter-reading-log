@@ -7,6 +7,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:sample/detail/BookDetail.dart';
 import 'package:sample/list/BookListItem.dart';
 import '../providers/book_list_provider.dart';
@@ -48,26 +49,41 @@ class _BookListViewState extends ConsumerState<BookListView> {
 
     if (list.isEmpty) return _emptyState();
 
-    return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 240,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.68,
+    // AnimationLimiter で「表示直後の 1 回だけ」stagger アニメが働く。
+    // フィルタや検索で list が変わっても再度アニメーションする。
+    return AnimationLimiter(
+      key: ValueKey(list.length),
+      child: GridView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 240,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 0.68,
+        ),
+        itemCount: list.length,
+        itemBuilder: (context, index) {
+          final book = list[index];
+          return AnimationConfiguration.staggeredGrid(
+            position: index,
+            columnCount: 3,
+            duration: const Duration(milliseconds: 420),
+            child: ScaleAnimation(
+              scale: 0.92,
+              child: FadeInAnimation(
+                child: BookListItem(
+                  book: book,
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => BookDetail(book: book)),
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+        },
       ),
-      itemCount: list.length,
-      itemBuilder: (context, index) {
-        final book = list[index];
-        return BookListItem(
-          book: book,
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => BookDetail(book: book)),
-            );
-          },
-        );
-      },
     );
   }
 

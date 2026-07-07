@@ -10,6 +10,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../list/BookListItem.dart';
 import '../models/book.dart';
 import '../providers/book_list_provider.dart';
@@ -223,26 +224,38 @@ class _RankingSection extends ConsumerWidget {
     final shelfBookIds =
         ref.watch(bookListProvider).map((b) => b.id).toSet();
 
-    return ListView.builder(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return _RankingCard(
-          rank: index + 1,
-          book: item.book,
-          caption: item.caption,
-          alreadyAdded: shelfBookIds.contains(item.book.id),
-          onTap: () => showBookDetailSheet(
-            context,
-            ref: ref,
-            book: item.book,
-            api: api,
-            caption: item.caption,
-          ),
-        );
-      },
+    return AnimationLimiter(
+      key: ValueKey('discover-${items.length}'),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return AnimationConfiguration.staggeredList(
+            position: index,
+            duration: const Duration(milliseconds: 420),
+            child: SlideAnimation(
+              horizontalOffset: 40,
+              child: FadeInAnimation(
+                child: _RankingCard(
+                  rank: index + 1,
+                  book: item.book,
+                  caption: item.caption,
+                  alreadyAdded: shelfBookIds.contains(item.book.id),
+                  onTap: () => showBookDetailSheet(
+                    context,
+                    ref: ref,
+                    book: item.book,
+                    api: api,
+                    caption: item.caption,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
