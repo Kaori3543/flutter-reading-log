@@ -7,6 +7,7 @@
 library;
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../MainPageWidget.dart';
@@ -27,6 +28,21 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   /// 現在アクティブな sync (start 済み)。ユーザー切り替えで作り直すために保持。
   FirestoreBookSync? _activeSync;
   String? _activeUid;
+
+  @override
+  void initState() {
+    super.initState();
+    // Web の signInWithRedirect フローから戻ってきたときに、Firebase Auth JS
+    // SDK は自動で `currentUser` を復元するはずだが、まれに `getRedirectResult`
+    // を明示的に呼ばないと authStateChanges が発火しないケースがある
+    // (COOP / iframe / セッションストレージ絡み)。ここで一度呼んでおくと確実。
+    // ネイティブは redirect フローを使わないので noop。
+    if (kIsWeb) {
+      // 成功しても失敗しても後段の authStateChanges 側で拾うので、ここでは
+      // 戻り値を捨てる。未ログイン状態で呼んだときの例外も握りつぶす。
+      FirebaseAuth.instance.getRedirectResult().then((_) {}, onError: (_) {});
+    }
+  }
 
   @override
   void dispose() {
