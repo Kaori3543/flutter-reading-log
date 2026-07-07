@@ -78,15 +78,19 @@ class _MainPageWidgetState extends State<MainPageWidget> {
   }
 
   Widget _buildNavBar() {
+    // Container は装飾のみ、高さ指定は内側 SizedBox に持たせる。
+    // これで SafeArea 分のシステムナビ (Android: 24〜48px) は Container が
+    // 吸収し、タブ内側は常に 60px の実寸を確保できる。
     return Container(
-      height: 64,
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: SafeArea(
         top: false,
-        child: Row(
+        child: SizedBox(
+          height: 60,
+          child: Row(
           children: List.generate(_tabs.length, (i) {
             final tab = _tabs[i];
             final active = _index == i;
@@ -130,6 +134,7 @@ class _MainPageWidgetState extends State<MainPageWidget> {
               ),
             );
           }),
+        ),
         ),
       ),
     );
