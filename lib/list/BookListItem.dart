@@ -32,7 +32,7 @@ class BookListItem extends StatelessWidget {
     super.key,
     required this.book,
     required this.onPressed,
-    this.actionLabel = '詳細を見る',
+    this.actionLabel = '詳細',
     this.showStatusBadge = true,
     this.showRating = true,
     this.showActionButton = true,

@@ -47,7 +47,7 @@ class TagBooksPage extends ConsumerWidget {
                   maxCrossAxisExtent: 240,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
-                  childAspectRatio: 0.68,
+                  childAspectRatio: 0.58,
                 ),
                 itemCount: tagged.length,
                 itemBuilder: (context, index) {

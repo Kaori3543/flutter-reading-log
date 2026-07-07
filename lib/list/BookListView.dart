@@ -61,7 +61,7 @@ class _BookListViewState extends ConsumerState<BookListView> {
           maxCrossAxisExtent: 240,
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
-          childAspectRatio: 0.68,
+          childAspectRatio: 0.58,
         ),
         itemCount: list.length,
         itemBuilder: (context, index) {
