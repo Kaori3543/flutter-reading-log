@@ -37,17 +37,20 @@ class TagBooksPage extends ConsumerWidget {
                 ),
               ),
             )
-          : AnimationLimiter(
+          : LayoutBuilder(builder: (context, cons) {
+              // Web/デスクトップは 0.68、モバイルは 0.58 (詳細ボタン見切れ回避)。
+              final aspect = cons.maxWidth >= 600 ? 0.68 : 0.58;
+              return AnimationLimiter(
               key: ValueKey('tag-$tag-${tagged.length}'),
               child: GridView.builder(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 gridDelegate:
-                    const SliverGridDelegateWithMaxCrossAxisExtent(
+                    SliverGridDelegateWithMaxCrossAxisExtent(
                   maxCrossAxisExtent: 240,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
-                  childAspectRatio: 0.58,
+                  childAspectRatio: aspect,
                 ),
                 itemCount: tagged.length,
                 itemBuilder: (context, index) {
@@ -84,7 +87,8 @@ class TagBooksPage extends ConsumerWidget {
                   );
                 },
               ),
-            ),
+            );
+            }),
     );
   }
 }
