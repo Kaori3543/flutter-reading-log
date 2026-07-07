@@ -15,6 +15,7 @@
 library;
 
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:sample/models/book.dart';
 
@@ -22,6 +23,25 @@ import 'package:sample/models/book.dart';
 /// 仕様: https://webservice.rakuten.co.jp/documentation/books-book-search
 const _baseUrl =
     'https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404';
+
+/// Cloudflare Worker で立てた CORS 対応プロキシ。Web ビルド (kIsWeb=true) の
+/// ときだけ経由する。ネイティブ (Windows/Android/iOS) からは直接 [_baseUrl] /
+/// [_genreUrl] を叩けるので Worker は使わない。
+///
+/// Worker のエンドポイント:
+///   /books/search → BooksBook/Search
+///   /books/genre  → BooksGenre/Search
+///
+/// applicationId / accessKey は Worker 側 secret に入れてあるので、クライアン
+/// トから渡す必要はない (URL に付けても Worker が削除して自前のを付ける)。
+const _proxyBaseUrl =
+    'https://reading-log-rakuten-proxy.tamable-attendance.workers.dev';
+
+/// 書籍検索 API の実際に叩くエンドポイントを返す。
+String _searchEndpoint() => kIsWeb ? '$_proxyBaseUrl/books/search' : _baseUrl;
+
+/// ジャンル検索 API の実際に叩くエンドポイントを返す。
+String _genreEndpoint() => kIsWeb ? '$_proxyBaseUrl/books/genre' : _genreUrl;
 
 /// BooksGenre/Search レスポンスから取り出すジャンル情報（W9）。
 ///
@@ -127,7 +147,7 @@ class RakutenApi {
         info = _GenreInfo(name: perIdCached, level: -1);
       } else {
         try {
-          final uri = Uri.parse(_genreUrl).replace(queryParameters: {
+          final uri = Uri.parse(_genreEndpoint()).replace(queryParameters: {
             'applicationId': _applicationId,
             'accessKey': _accessKey,
             'booksGenreId': id,
@@ -195,7 +215,7 @@ class RakutenApi {
       );
     }
 
-    final uri = Uri.parse(_baseUrl).replace(queryParameters: {
+    final uri = Uri.parse(_searchEndpoint()).replace(queryParameters: {
       'applicationId': _applicationId,
       'accessKey': _accessKey,
       // 楽天 Books API は title / author / publisherName / isbn / size /
@@ -242,7 +262,7 @@ class RakutenApi {
     final cached = _rankingCache[cacheKey];
     if (cached != null) return cached;
 
-    final uri = Uri.parse(_baseUrl).replace(queryParameters: {
+    final uri = Uri.parse(_searchEndpoint()).replace(queryParameters: {
       'applicationId': _applicationId,
       'accessKey': _accessKey,
       'booksGenreId': booksGenreId,
@@ -287,7 +307,7 @@ class RakutenApi {
     final cached = _rankingCache[cacheKey];
     if (cached != null) return cached;
 
-    final uri = Uri.parse(_baseUrl).replace(queryParameters: {
+    final uri = Uri.parse(_searchEndpoint()).replace(queryParameters: {
       'applicationId': _applicationId,
       'accessKey': _accessKey,
       'author': normalized,
