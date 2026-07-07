@@ -1,0 +1,16 @@
+name = "reading-log-rakuten-proxy"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# 楽天 Books API を CORS 対応で中継する Worker。
+# Flutter Web / Android エミュレータの両方から呼べるようにする。
+#
+# 使い方 (secrets 登録):
+#   wrangler secret put RAKUTEN_APP_ID
+#   wrangler secret put RAKUTEN_ACCESS_KEY
+#
+# デプロイ:
+#   wrangler deploy
+#
+# Flutter 側は kIsWeb の場合のみこの Worker URL を叩き、それ以外は
+# 直接楽天 API を叩くように RakutenApi を切り替える。
