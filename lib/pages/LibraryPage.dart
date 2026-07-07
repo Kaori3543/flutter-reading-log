@@ -6,6 +6,7 @@
 /// - 本がまだ 1 冊も付いていないタグは末尾の管理リストに集約
 library;
 
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -412,18 +413,26 @@ class LibraryPage extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: SizedBox(
                       width: 145,
-                      child: BookListItem(
-                        book: book,
-                        compact: true,
-                        showActionButton: false,
-                        showRating: false,
-                        showStatusBadge: false,
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                                builder: (_) => BookDetail(book: book)),
-                          );
-                        },
+                      child: OpenContainer(
+                        transitionType: ContainerTransitionType.fadeThrough,
+                        transitionDuration: const Duration(milliseconds: 480),
+                        openColor: AppColors.bg,
+                        closedColor: Colors.white,
+                        closedElevation: 0,
+                        closedShape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: const BorderSide(color: AppColors.border),
+                        ),
+                        openBuilder: (context, _) => BookDetail(book: book),
+                        closedBuilder: (context, openContainer) =>
+                            BookListItem(
+                          book: book,
+                          compact: true,
+                          showActionButton: false,
+                          showRating: false,
+                          showStatusBadge: false,
+                          onPressed: openContainer,
+                        ),
                       ),
                     ),
                   ),

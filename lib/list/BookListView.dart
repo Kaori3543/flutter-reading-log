@@ -5,6 +5,7 @@
 /// 差分アニメは省略し、GridView.builder で毎回全体を再描画する。
 library;
 
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -13,6 +14,7 @@ import 'package:sample/list/BookListItem.dart';
 import '../providers/book_list_provider.dart';
 import '../providers/book_view_settings_provider.dart';
 import '../providers/review_list_provider.dart';
+import '../theme/app_theme.dart';
 
 class BookListView extends ConsumerStatefulWidget {
   const BookListView({super.key});
@@ -59,7 +61,7 @@ class _BookListViewState extends ConsumerState<BookListView> {
           maxCrossAxisExtent: 240,
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
-          childAspectRatio: 0.68,
+          childAspectRatio: 0.58,
         ),
         itemCount: list.length,
         itemBuilder: (context, index) {
@@ -71,13 +73,26 @@ class _BookListViewState extends ConsumerState<BookListView> {
             child: ScaleAnimation(
               scale: 0.92,
               child: FadeInAnimation(
-                child: BookListItem(
-                  book: book,
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => BookDetail(book: book)),
-                    );
-                  },
+                // OpenContainer: タップされたカードが「変形」しながら本詳細
+                // に展開する Material Motion トランジション。閉じるときも
+                // 同じ経路で戻る。BookListItem 自体の onPressed は
+                // openContainer コールバックに繋げて、ボタン領域外のカード
+                // タップからも遷移するようにする。
+                child: OpenContainer(
+                  transitionType: ContainerTransitionType.fadeThrough,
+                  transitionDuration: const Duration(milliseconds: 480),
+                  openColor: AppColors.bg,
+                  closedColor: Colors.white,
+                  closedElevation: 0,
+                  closedShape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: AppColors.border),
+                  ),
+                  openBuilder: (context, _) => BookDetail(book: book),
+                  closedBuilder: (context, openContainer) => BookListItem(
+                    book: book,
+                    onPressed: openContainer,
+                  ),
                 ),
               ),
             ),

@@ -4,12 +4,14 @@
 /// 本棚と同じ縦グリッドカードを敷き詰めて表示する。
 library;
 
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../detail/BookDetail.dart';
 import '../list/BookListItem.dart';
 import '../providers/book_list_provider.dart';
+import '../theme/app_theme.dart';
 
 class TagBooksPage extends ConsumerWidget {
   final String tag;
@@ -45,7 +47,7 @@ class TagBooksPage extends ConsumerWidget {
                   maxCrossAxisExtent: 240,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
-                  childAspectRatio: 0.68,
+                  childAspectRatio: 0.58,
                 ),
                 itemCount: tagged.length,
                 itemBuilder: (context, index) {
@@ -57,14 +59,25 @@ class TagBooksPage extends ConsumerWidget {
                     child: ScaleAnimation(
                       scale: 0.92,
                       child: FadeInAnimation(
-                        child: BookListItem(
-                          book: book,
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                  builder: (_) => BookDetail(book: book)),
-                            );
-                          },
+                        child: OpenContainer(
+                          transitionType:
+                              ContainerTransitionType.fadeThrough,
+                          transitionDuration:
+                              const Duration(milliseconds: 480),
+                          openColor: AppColors.bg,
+                          closedColor: Colors.white,
+                          closedElevation: 0,
+                          closedShape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: const BorderSide(color: AppColors.border),
+                          ),
+                          openBuilder: (context, _) =>
+                              BookDetail(book: book),
+                          closedBuilder: (context, openContainer) =>
+                              BookListItem(
+                            book: book,
+                            onPressed: openContainer,
+                          ),
                         ),
                       ),
                     ),
