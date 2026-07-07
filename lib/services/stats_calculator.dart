@@ -205,3 +205,94 @@ DateTime _addMonths(DateTime base, int months) {
   final newMonth = ((m - 1) % 12 + 12) % 12 + 1;
   return DateTime(base.year + yearShift, newMonth, 1);
 }
+
+// ─────────────────────────────────────────────────────
+// UI 改修: 年単位の集計 (統計画面の刷新用に追加)
+// ─────────────────────────────────────────────────────
+
+/// 年単位で集計した結果スナップショット。
+///
+/// - monthly: 1 〜 12 月の完読冊数 (常に 12 要素)
+/// - genres: その年に完読した本のジャンル分布
+/// - favoriteAuthors: 全期間の好み傾向 (年の影響は受けない)
+/// - allTimeTotalFinished: これまでの累計完読数 (ヒーロー数字用)
+class YearlyStatsResult {
+  final int year;
+  final int totalFinished;
+  final List<MonthlyCount> monthly;
+  final List<GenreCount> genres;
+  final List<AuthorScore> favoriteAuthors;
+  final int allTimeTotalFinished;
+
+  const YearlyStatsResult({
+    required this.year,
+    required this.totalFinished,
+    required this.monthly,
+    required this.genres,
+    required this.favoriteAuthors,
+    required this.allTimeTotalFinished,
+  });
+
+  /// 指定年に完読本が 1 件も無い状態。
+  bool get isEmpty => totalFinished == 0;
+}
+
+/// 指定した年の完読本を集計する。月別 (1〜12) とジャンル分布をその年で
+/// 絞って返し、お気に入り著者は全期間から計算する。
+YearlyStatsResult calculateYearlyStats(List<Book> books, int year) {
+  final finishedBooks = books
+      .where((b) => b.status == BookStatus.finished && b.finishedAt != null)
+      .toList();
+
+  final inYear = finishedBooks
+      .where((b) => b.finishedAt!.year == year)
+      .toList();
+
+  // 月別 (1〜12 月を 12 要素で常に返す)
+  final monthly = List.generate(12, (i) {
+    final month = DateTime(year, i + 1, 1);
+    final count = inYear.where((b) => b.finishedAt!.month == i + 1).length;
+    return MonthlyCount(month: month, count: count);
+  });
+
+  // ジャンル別 (その年の完読分のみ)
+  final genreMap = <String, int>{};
+  for (final b in inYear) {
+    final g = b.genre;
+    if (g == null || g.isEmpty) continue;
+    genreMap[g] = (genreMap[g] ?? 0) + 1;
+  }
+  final genres = genreMap.entries
+      .map((e) => GenreCount(genre: e.key, count: e.value))
+      .toList()
+    ..sort((a, b) {
+      final byCount = b.count.compareTo(a.count);
+      if (byCount != 0) return byCount;
+      return a.genre.compareTo(b.genre);
+    });
+
+  // お気に入り著者は全期間
+  final favoriteAuthors = collectFavoriteAuthors(books);
+
+  return YearlyStatsResult(
+    year: year,
+    totalFinished: inYear.length,
+    monthly: monthly,
+    genres: genres,
+    favoriteAuthors: favoriteAuthors,
+    allTimeTotalFinished: finishedBooks.length,
+  );
+}
+
+/// 完読データが存在する年 + 今年を新しい順で返す。
+/// 完読 0 冊のときも今年は必ず含める (デフォルト選択用)。
+List<int> availableYears(List<Book> books, {required int currentYear}) {
+  final years = <int>{currentYear};
+  for (final b in books) {
+    if (b.status == BookStatus.finished && b.finishedAt != null) {
+      years.add(b.finishedAt!.year);
+    }
+  }
+  final sorted = years.toList()..sort((a, b) => b.compareTo(a));
+  return sorted;
+}
