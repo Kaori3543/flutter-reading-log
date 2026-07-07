@@ -8,6 +8,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../detail/BookDetail.dart';
 import '../list/BookListItem.dart';
 import '../models/book.dart';
@@ -393,32 +394,44 @@ class LibraryPage extends ConsumerWidget {
   Widget _horizontalBooks(BuildContext context, List<Book> books) {
     return SizedBox(
       height: 230,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        itemCount: books.length,
-        itemBuilder: (context, index) {
-          final book = books[index];
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: SizedBox(
-              width: 145,
-              child: BookListItem(
-                book: book,
-                compact: true,
-                showActionButton: false,
-                showRating: false,
-                showStatusBadge: false,
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => BookDetail(book: book)),
-                  );
-                },
+      child: AnimationLimiter(
+        key: ValueKey('lib-h-${books.length}'),
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          itemCount: books.length,
+          itemBuilder: (context, index) {
+            final book = books[index];
+            return AnimationConfiguration.staggeredList(
+              position: index,
+              duration: const Duration(milliseconds: 420),
+              child: SlideAnimation(
+                horizontalOffset: 32,
+                child: FadeInAnimation(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: SizedBox(
+                      width: 145,
+                      child: BookListItem(
+                        book: book,
+                        compact: true,
+                        showActionButton: false,
+                        showRating: false,
+                        showStatusBadge: false,
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => BookDetail(book: book)),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

@@ -13,6 +13,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../detail/BookDetail.dart';
 import '../list/BookListItem.dart';
 import '../models/book.dart';
@@ -406,18 +407,30 @@ class _HomePageState extends ConsumerState<HomePage> {
         _sectionHeader(title, icon, subtitle: subtitle, count: books.length),
         SizedBox(
           height: 230,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: books.length,
-            itemBuilder: (context, index) {
-              final book = books[index];
-              return _homeBookCard(book, () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => BookDetail(book: book)),
+          child: AnimationLimiter(
+            key: ValueKey('reminder-$title-${books.length}'),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: books.length,
+              itemBuilder: (context, index) {
+                final book = books[index];
+                return AnimationConfiguration.staggeredList(
+                  position: index,
+                  duration: const Duration(milliseconds: 420),
+                  child: SlideAnimation(
+                    horizontalOffset: 32,
+                    child: FadeInAnimation(
+                      child: _homeBookCard(book, () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => BookDetail(book: book)),
+                        );
+                      }),
+                    ),
+                  ),
                 );
-              });
-            },
+              },
+            ),
           ),
         ),
         const Divider(height: 24),
@@ -479,24 +492,36 @@ class _HomePageState extends ConsumerState<HomePage> {
                         .watch(bookListProvider)
                         .map((b) => b.id)
                         .toSet();
-                    return ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: items.length,
-                      itemBuilder: (context, index) {
-                        final it = items[index];
-                        return _recommendationCard(
-                          book: it.book,
-                          alreadyAdded: shelfIds.contains(it.book.id),
-                          onTap: () => showBookDetailSheet(
-                            context,
-                            ref: ref,
-                            book: it.book,
-                            api: _api,
-                            caption: it.caption,
-                          ),
-                        );
-                      },
+                    return AnimationLimiter(
+                      key: ValueKey('rec-$futureKey-${items.length}'),
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        itemCount: items.length,
+                        itemBuilder: (context, index) {
+                          final it = items[index];
+                          return AnimationConfiguration.staggeredList(
+                            position: index,
+                            duration: const Duration(milliseconds: 420),
+                            child: SlideAnimation(
+                              horizontalOffset: 32,
+                              child: FadeInAnimation(
+                                child: _recommendationCard(
+                                  book: it.book,
+                                  alreadyAdded: shelfIds.contains(it.book.id),
+                                  onTap: () => showBookDetailSheet(
+                                    context,
+                                    ref: ref,
+                                    book: it.book,
+                                    api: _api,
+                                    caption: it.caption,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     );
                   },
                 ),
