@@ -57,6 +57,10 @@ dependencies:
   # AnimationLimiter + AnimationConfiguration の組み合わせで、ListView/GridView
   # の itemBuilder を包むだけで各カードが遅延ずれで登場する。
   flutter_staggered_animations: ^1.1.1
+  # 本カードから本詳細への遷移を Material Motion の container transform に
+  # する。タップしたカードがそのまま詳細画面に「変形」して展開する。
+  # Flutter らしいリッチな遷移演出をワンウィジェットで提供。
+  animations: ^2.0.11
 
 dev_dependencies:
   flutter_test:

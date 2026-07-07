@@ -11,6 +11,7 @@ library;
 
 import 'dart:async';
 
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -421,11 +422,34 @@ class _HomePageState extends ConsumerState<HomePage> {
                   child: SlideAnimation(
                     horizontalOffset: 32,
                     child: FadeInAnimation(
-                      child: _homeBookCard(book, () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => BookDetail(book: book)),
-                        );
-                      }),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: SizedBox(
+                          width: 145,
+                          child: OpenContainer(
+                            transitionType: ContainerTransitionType.fadeThrough,
+                            transitionDuration:
+                                const Duration(milliseconds: 480),
+                            openColor: AppColors.bg,
+                            closedColor: Colors.white,
+                            closedElevation: 0,
+                            closedShape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: const BorderSide(color: AppColors.border),
+                            ),
+                            openBuilder: (context, _) => BookDetail(book: book),
+                            closedBuilder: (context, openContainer) =>
+                                BookListItem(
+                              book: book,
+                              onPressed: openContainer,
+                              compact: true,
+                              showActionButton: false,
+                              showRating: false,
+                              showStatusBadge: false,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 );
@@ -435,24 +459,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
         const Divider(height: 24),
       ],
-    );
-  }
-
-  /// 本棚と同じ縦カード意匠のコンパクト版（表紙 + タイトル + 著者のみ）。
-  Widget _homeBookCard(Book book, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: SizedBox(
-        width: 145,
-        child: BookListItem(
-          book: book,
-          onPressed: onTap,
-          compact: true,
-          showActionButton: false,
-          showRating: false,
-          showStatusBadge: false,
-        ),
-      ),
     );
   }
 
