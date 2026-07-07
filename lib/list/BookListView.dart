@@ -53,52 +53,57 @@ class _BookListViewState extends ConsumerState<BookListView> {
 
     // AnimationLimiter で「表示直後の 1 回だけ」stagger アニメが働く。
     // フィルタや検索で list が変わっても再度アニメーションする。
-    return AnimationLimiter(
-      key: ValueKey(list.length),
-      child: GridView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 240,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 0.58,
-        ),
-        itemCount: list.length,
-        itemBuilder: (context, index) {
-          final book = list[index];
-          return AnimationConfiguration.staggeredGrid(
-            position: index,
-            columnCount: 3,
-            duration: const Duration(milliseconds: 420),
-            child: ScaleAnimation(
-              scale: 0.92,
-              child: FadeInAnimation(
-                // OpenContainer: タップされたカードが「変形」しながら本詳細
-                // に展開する Material Motion トランジション。閉じるときも
-                // 同じ経路で戻る。BookListItem 自体の onPressed は
-                // openContainer コールバックに繋げて、ボタン領域外のカード
-                // タップからも遷移するようにする。
-                child: OpenContainer(
-                  transitionType: ContainerTransitionType.fadeThrough,
-                  transitionDuration: const Duration(milliseconds: 480),
-                  openColor: AppColors.bg,
-                  closedColor: Colors.white,
-                  closedElevation: 0,
-                  closedShape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: AppColors.border),
-                  ),
-                  openBuilder: (context, _) => BookDetail(book: book),
-                  closedBuilder: (context, openContainer) => BookListItem(
-                    book: book,
-                    onPressed: openContainer,
+    // Web/デスクトップの広いレイアウトでは、モバイル向けに縦長にした 0.58
+    // だと info 部分が空白過多になるので、幅に応じて 0.68 (旧値) に戻す。
+    return LayoutBuilder(
+      builder: (context, cons) {
+        final isWide = cons.maxWidth >= 600;
+        final aspect = isWide ? 0.68 : 0.58;
+        return AnimationLimiter(
+          key: ValueKey(list.length),
+          child: GridView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 240,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: aspect,
+            ),
+            itemCount: list.length,
+            itemBuilder: (context, index) {
+              final book = list[index];
+              return AnimationConfiguration.staggeredGrid(
+                position: index,
+                columnCount: 3,
+                duration: const Duration(milliseconds: 420),
+                child: ScaleAnimation(
+                  scale: 0.92,
+                  child: FadeInAnimation(
+                    // OpenContainer: タップされたカードが「変形」しながら
+                    // 本詳細に展開する Material Motion トランジション。
+                    child: OpenContainer(
+                      transitionType: ContainerTransitionType.fadeThrough,
+                      transitionDuration: const Duration(milliseconds: 480),
+                      openColor: AppColors.bg,
+                      closedColor: Colors.white,
+                      closedElevation: 0,
+                      closedShape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: const BorderSide(color: AppColors.border),
+                      ),
+                      openBuilder: (context, _) => BookDetail(book: book),
+                      closedBuilder: (context, openContainer) => BookListItem(
+                        book: book,
+                        onPressed: openContainer,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 

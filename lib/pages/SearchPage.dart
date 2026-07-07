@@ -12,6 +12,7 @@ import 'package:sample/list/BookListItem.dart';
 import 'package:sample/models/book.dart';
 import 'package:sample/providers/book_list_provider.dart';
 import 'package:sample/services/rakuten_api.dart';
+import 'package:sample/theme/app_theme.dart';
 
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
@@ -54,22 +55,84 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       return;
     }
 
-    // 確認ダイアログ
+    // 確認ダイアログ (目標設定ダイアログと同じ見た目に統一)。
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('本棚に追加'),
-        content: Text('「${book.title}」を本棚に追加しますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('キャンセル'),
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.bg,
+        elevation: 6,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '本棚に追加',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 2.2,
+                    color: AppColors.mutedFg,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '「${book.title}」を本棚に追加しますか？',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.fg,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.mutedFg,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        minimumSize: const Size(0, 36),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      child: const Text('キャンセル'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.primaryFg,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 0),
+                        minimumSize: const Size(0, 36),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      child: const Text('追加'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('追加'),
-          ),
-        ],
+        ),
       ),
     );
 
@@ -105,7 +168,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('本を検索'),
+        title: const Text('本の追加'),
       ),
       body: Column(
         children: [
@@ -146,7 +209,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            '上の検索バーに本のタイトル・著者・キーワードを入力して\n「検索」を押してください',
+            '上の検索バーに本のタイトル・著者・\nキーワードを入力して「検索」を押してください',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.black54),
           ),
@@ -178,15 +241,18 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             child: Text('該当する本が見つかりませんでした'),
           );
         }
-        return AnimationLimiter(
+        return LayoutBuilder(builder: (context, cons) {
+          // Web/デスクトップ (幅 >= 600) は 0.68、モバイルは 0.58。
+          final aspect = cons.maxWidth >= 600 ? 0.68 : 0.58;
+          return AnimationLimiter(
           key: ValueKey('search-${books.length}'),
           child: GridView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
               maxCrossAxisExtent: 240,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
-              childAspectRatio: 0.58,
+              childAspectRatio: aspect,
             ),
             itemCount: books.length,
             itemBuilder: (context, index) {
@@ -211,6 +277,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             },
           ),
         );
+        });
       },
     );
   }

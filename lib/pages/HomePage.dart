@@ -94,6 +94,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ? const Icon(Icons.person, size: 16, color: AppColors.fg)
                     : null,
               ),
+              // 他のダイアログ/フィルタと統一: AppColors.bg 背景 + 角丸 16px +
+              // border。区切り線も細い accent 系にする。
+              color: AppColors.bg,
+              elevation: 6,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: AppColors.border),
+              ),
               onSelected: (v) async {
                 if (v == 'signout') {
                   await ref.read(authServiceProvider).signOut();
@@ -102,38 +110,72 @@ class _HomePageState extends ConsumerState<HomePage> {
               itemBuilder: (ctx) => [
                 PopupMenuItem<String>(
                   enabled: false,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        user.displayName ?? 'ログイン中',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: AppColors.fg,
-                        ),
-                      ),
-                      if (user.email != null)
-                        Text(
-                          user.email!,
-                          style: const TextStyle(
+                  padding: EdgeInsets.zero,
+                  height: 0,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'アカウント',
+                          style: TextStyle(
                             fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 2.2,
                             color: AppColors.mutedFg,
                           ),
                         ),
-                    ],
+                        const SizedBox(height: 8),
+                        Text(
+                          user.displayName ?? 'ログイン中',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: AppColors.fg,
+                          ),
+                        ),
+                        if (user.email != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              user.email!,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.mutedFg,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-                const PopupMenuDivider(),
-                const PopupMenuItem<String>(
+                const PopupMenuDivider(height: 1),
+                PopupMenuItem<String>(
                   value: 'signout',
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout, size: 16, color: AppColors.mutedFg),
-                      SizedBox(width: 8),
-                      Text('ログアウト'),
-                    ],
+                  padding: EdgeInsets.zero,
+                  height: 40,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout,
+                            size: 16,
+                            color: Colors.redAccent.withValues(alpha: 0.85)),
+                        const SizedBox(width: 10),
+                        Text(
+                          'ログアウト',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.redAccent.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -351,37 +393,124 @@ class _HomePageState extends ConsumerState<HomePage> {
     final controller = TextEditingController(
       text: current != null ? '$current' : '',
     );
+    // フィルタメニューと見た目を合わせた Dialog。角丸 16px + border、
+    // 見出しは small letter-spacing muted、保存は primary pill。
+    // Web で横広すぎないよう ConstrainedBox で最大幅 400px に制限。
     final result = await showDialog<int?>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('月間の読書目標'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: '例: 5',
-            suffixText: '冊 / 月',
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.bg,
+        elevation: 6,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 見出し (フィルタ/並び替えと同じ small letter-spacing)
+              const Text(
+                '月間の読書目標',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 2.2,
+                  color: AppColors.mutedFg,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppColors.fg,
+                  fontWeight: FontWeight.w500,
+                ),
+                decoration: InputDecoration(
+                  hintText: '例: 5',
+                  suffixText: '冊 / 月',
+                  filled: true,
+                  fillColor: AppColors.secondary.withValues(alpha: 0.5),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                        color: AppColors.primary, width: 1.5),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  if (current != null)
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(0),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(0, 32),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      child: const Text('クリア'),
+                    ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(null),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.mutedFg,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      minimumSize: const Size(0, 36),
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    child: const Text('キャンセル'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: () {
+                      final n = int.tryParse(controller.text.trim());
+                      Navigator.of(ctx).pop(n);
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.primaryFg,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 0),
+                      minimumSize: const Size(0, 36),
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    child: const Text('保存'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-        actions: [
-          if (current != null)
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(0),
-              child: const Text('目標をクリア'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(null),
-            child: const Text('キャンセル'),
-          ),
-          TextButton(
-            onPressed: () {
-              final n = int.tryParse(controller.text.trim());
-              Navigator.of(ctx).pop(n);
-            },
-            child: const Text('保存'),
-          ),
-        ],
+        ),
       ),
     );
 

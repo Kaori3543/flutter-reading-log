@@ -56,16 +56,17 @@ class LibraryPage extends ConsumerWidget {
         children: [
           _favoritesSection(context, favorites),
           // お気に入り ↔ タグ の区切り。
-          if (activeTags.isNotEmpty || emptyTags.isNotEmpty) _divider(),
-          if (activeTags.isNotEmpty || emptyTags.isNotEmpty)
-            _sectionHeader(
-              icon: Icons.local_offer_outlined,
-              iconColor: AppColors.accent,
-              title: 'タグ付けした本',
-              count:
-                  activeTags.isEmpty ? null : activeTags.length,
-              trailing: _newTagButton(context, ref),
-            ),
+          _divider(),
+          // タグ付けした本セクション。タグが 1 つもなくても「新規タグ」
+          // ボタンだけは常に見せて、ライブラリからタグを作り始められる
+          // ようにする。
+          _sectionHeader(
+            icon: Icons.local_offer_outlined,
+            iconColor: AppColors.accent,
+            title: 'タグ付けした本',
+            count: activeTags.isEmpty ? null : activeTags.length,
+            trailing: _newTagButton(context, ref),
+          ),
           if (activeTags.isNotEmpty)
             // 各タグは区切り線なしで連続表示。
             for (final tag in activeTags)
@@ -74,6 +75,17 @@ class LibraryPage extends ConsumerWidget {
             if (activeTags.isNotEmpty) _divider(),
             _emptyTagsList(context, emptyTags),
           ],
+          if (activeTags.isEmpty && emptyTags.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: Text(
+                '右上の「新規タグ」からタグを作成できます',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.mutedFg,
+                ),
+              ),
+            ),
           if (showEmptyState) _emptyState(),
         ],
       ),
@@ -492,7 +504,7 @@ class LibraryPage extends ConsumerWidget {
       padding: EdgeInsets.all(32),
       child: Center(
         child: Text(
-          '本詳細から♥ボタンを押す、もしくはタグを付けると、\nここに集約されます',
+          '本詳細で♥ボタンやタグを付けると\nここに集約されます',
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.mutedFg),
         ),

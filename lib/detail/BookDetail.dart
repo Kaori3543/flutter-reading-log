@@ -183,68 +183,56 @@ class _BookDetailState extends ConsumerState<BookDetail> {
   }
 
   // ── 上部ヘッダー ─────────────────────────────────────────
+  // 左右のボタンの文字幅が違うと Row + Expanded では中央がズレるので、
+  // Stack で「本の詳細」を絶対中央固定、戻る/削除ボタンを左右の端に別々に
+  // 配置する。
   Widget _customHeader(Book book) {
     return Container(
       height: 56,
       color: _headerBg,
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Row(
+      child: Stack(
         children: [
-          _headerButton(
-            icon: Icons.arrow_back,
-            label: 'ライブラリに戻る',
-            onTap: () => Navigator.of(context).maybePop(),
-          ),
-          Expanded(
-            child: Center(
-              child: Text(
-                '本の詳細',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 1.2,
-                ),
+          // レイヤー 1: 画面中央のタイトル
+          Center(
+            child: Text(
+              '本の詳細',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 1.2,
               ),
             ),
           ),
-          _headerButton(
-            icon: Icons.delete_outline,
-            label: '削除',
-            hoverColor: Colors.redAccent,
-            onTap: () => _confirmAndRemove(book),
+          // レイヤー 2: 左の戻るボタン (アイコンのみ、テキストなしですっきり)
+          Positioned(
+            left: 8,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                color: Colors.white.withValues(alpha: 0.7),
+                tooltip: 'ライブラリに戻る',
+                onPressed: () => Navigator.of(context).maybePop(),
+              ),
+            ),
+          ),
+          // レイヤー 3: 右の削除ボタン (アイコンのみ)
+          Positioned(
+            right: 8,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: IconButton(
+                icon: const Icon(Icons.delete_outline),
+                color: Colors.white.withValues(alpha: 0.7),
+                tooltip: '削除',
+                onPressed: () => _confirmAndRemove(book),
+              ),
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _headerButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    Color? hoverColor,
-  }) {
-    final base = Colors.white.withValues(alpha: 0.7);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: base),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: base,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1043,99 +1031,230 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
         .where((t) => !allCandidates.contains(t))
         .toList(growable: false);
 
-    return AlertDialog(
-      title: const Text('タグを編集'),
-      content: SizedBox(
-        width: 320,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (sortedCandidates.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4),
-                  child: Text(
-                    'まだタグがありません。下から新規作成してください',
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
+    // 目標設定 / 本棚に追加 と統一したデザインの Dialog。
+    return Dialog(
+      backgroundColor: AppColors.bg,
+      elevation: 6,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'タグを編集',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 2.2,
+                    color: AppColors.mutedFg,
                   ),
-                )
-              else
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: sortedCandidates.map((tag) {
-                    final selected = _selected.contains(tag);
-                    return FilterChip(
-                      label: Text('#$tag'),
-                      selected: selected,
-                      onSelected: (_) => _toggleTag(tag),
-                    );
-                  }).toList(),
                 ),
-              const SizedBox(height: 16),
-              const Text(
-                '+ 新規タグ',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _newTagController,
-                      decoration: const InputDecoration(
-                        hintText: '例: 仕事用',
-                        isDense: true,
-                        border: OutlineInputBorder(),
+                const SizedBox(height: 16),
+                if (sortedCandidates.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      'まだタグがありません。下から新規作成してください',
+                      style:
+                          TextStyle(fontSize: 12, color: AppColors.mutedFg),
+                    ),
+                  )
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: sortedCandidates.map((tag) {
+                      final selected = _selected.contains(tag);
+                      return InkWell(
+                        onTap: () => _toggleTag(tag),
+                        borderRadius: BorderRadius.circular(12),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.secondary,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '#$tag',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: selected
+                                  ? AppColors.primaryFg
+                                  : AppColors.mutedFg,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                const SizedBox(height: 20),
+                const Text(
+                  '新規タグ',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 2.2,
+                    color: AppColors.mutedFg,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _newTagController,
+                        style: const TextStyle(
+                            fontSize: 14, color: AppColors.fg),
+                        decoration: InputDecoration(
+                          hintText: '例: 仕事用',
+                          isDense: true,
+                          filled: true,
+                          fillColor:
+                              AppColors.secondary.withValues(alpha: 0.5),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                                color: AppColors.primary, width: 1.5),
+                          ),
+                        ),
+                        onSubmitted: (_) => _addNewTag(),
                       ),
-                      onSubmitted: (_) => _addNewTag(),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: _addNewTag,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.primaryFg,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 0),
+                        minimumSize: const Size(0, 36),
+                        textStyle: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      child: const Text('追加'),
+                    ),
+                  ],
+                ),
+                if (templatesToShow.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  const Text(
+                    'テンプレートから追加',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 2.2,
+                      color: AppColors.mutedFg,
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  ElevatedButton(
-                    onPressed: _addNewTag,
-                    child: const Text('追加'),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: templatesToShow.map((tag) {
+                      return InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selected.add(tag);
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(12),
+                            border:
+                                Border.all(color: AppColors.border, width: 1),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.add,
+                                  size: 14, color: AppColors.mutedFg),
+                              const SizedBox(width: 4),
+                              Text(
+                                tag,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.mutedFg,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ],
-              ),
-              if (templatesToShow.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Text(
-                  'テンプレートから追加',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: templatesToShow.map((tag) {
-                    return ActionChip(
-                      avatar: const Icon(Icons.add, size: 14),
-                      label: Text(tag),
-                      onPressed: () {
-                        setState(() {
-                          _selected.add(tag);
-                        });
-                      },
-                    );
-                  }).toList(),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.mutedFg,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        minimumSize: const Size(0, 36),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      child: const Text('キャンセル'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () =>
+                          Navigator.of(context).pop(_selected.toList()),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.primaryFg,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 0),
+                        minimumSize: const Size(0, 36),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      child: const Text('保存'),
+                    ),
+                  ],
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('キャンセル'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(_selected.toList()),
-          child: const Text('保存'),
-        ),
-      ],
     );
   }
 }

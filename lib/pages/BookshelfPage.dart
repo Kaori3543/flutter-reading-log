@@ -206,6 +206,9 @@ class _BookshelfPageState extends ConsumerState<BookshelfPage> {
 
     return Scaffold(
       appBar: AppBar(
+        // アクション 4 個ぶんの幅で右寄せになるので、通常の centerTitle だけ
+        // では画面中央には来ない。検索中でないときは flexibleSpace 側で
+        // AppBar 全幅に対して中央にラベルを描き、title は空にする。
         title: _isSearching
             ? TextField(
                 controller: _searchController,
@@ -216,7 +219,17 @@ class _BookshelfPageState extends ConsumerState<BookshelfPage> {
                   border: InputBorder.none,
                 ),
               )
-            : const Text('本棚'),
+            : null,
+        flexibleSpace: _isSearching
+            ? null
+            : SafeArea(
+                child: Center(
+                  child: Text(
+                    '本棚',
+                    style: Theme.of(context).appBarTheme.titleTextStyle,
+                  ),
+                ),
+              ),
         leading: _isSearching
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
@@ -238,12 +251,16 @@ class _BookshelfPageState extends ConsumerState<BookshelfPage> {
                   ),
               ]
             : [
+                // アクションを compact に詰めて、中央の「本棚」タイトルとの
+                // 距離を確保する。default の IconButton は 48x48 だが
+                // visualDensity: compact + 小さめ padding で ~36 幅にする。
                 IconButton(
                   icon: const Icon(Icons.search),
                   tooltip: '本棚内を検索',
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
                   onPressed: _toggleSearchMode,
                 ),
-                // フィルタボタン。適用中はドットで示唆。
                 Stack(
                   alignment: Alignment.center,
                   children: [
@@ -251,12 +268,14 @@ class _BookshelfPageState extends ConsumerState<BookshelfPage> {
                       key: _filterButtonKey,
                       icon: const Icon(Icons.tune),
                       tooltip: 'フィルタ',
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.all(4),
                       onPressed: _openFilterSheet,
                     ),
                     if (hasActiveFilter)
                       Positioned(
-                        top: 10,
-                        right: 10,
+                        top: 6,
+                        right: 6,
                         child: Container(
                           width: 8,
                           height: 8,
@@ -272,11 +291,15 @@ class _BookshelfPageState extends ConsumerState<BookshelfPage> {
                   key: _sortButtonKey,
                   icon: const Icon(Icons.sort),
                   tooltip: '並び替え',
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
                   onPressed: _openSortMenu,
                 ),
                 IconButton(
                   icon: const Icon(Icons.add),
                   tooltip: '本棚に新しく追加',
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -284,6 +307,7 @@ class _BookshelfPageState extends ConsumerState<BookshelfPage> {
                     );
                   },
                 ),
+                const SizedBox(width: 4),
               ],
         bottom: hasActiveFilter
             ? PreferredSize(
@@ -376,12 +400,16 @@ class _FilterMenuContent extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text(
+              // 並び替えメニューの見出しと同じ small letterSpacing の
+              // muted スタイルに統一する。
+              const Text(
                 'フィルタ',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.fg,
-                    ),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 2.2,
+                  color: AppColors.mutedFg,
+                ),
               ),
               const Spacer(),
               TextButton(
@@ -395,12 +423,16 @@ class _FilterMenuContent extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   minimumSize: const Size(0, 32),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 child: const Text('すべて解除'),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           _sectionLabel('ステータス'),
           const SizedBox(height: 10),
           Wrap(
