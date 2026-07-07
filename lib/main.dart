@@ -1,8 +1,10 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
-import 'MainPageWidget.dart';
+import 'firebase_options.dart';
 import 'providers/book_list_provider.dart';
 import 'providers/reading_goal_provider.dart';
 import 'providers/review_list_provider.dart';
@@ -10,6 +12,7 @@ import 'services/book_repository.dart';
 import 'services/review_repository.dart';
 import 'services/settings_repository.dart';
 import 'theme/app_theme.dart';
+import 'widgets/AuthGate.dart';
 
 
 /*
@@ -22,6 +25,17 @@ import 'ThirdPage.dart';
 Future<void> main() async {
   // async main を使うため Flutter engine を明示的に初期化
   WidgetsFlutterBinding.ensureInitialized();
+
+  // feature/sync-firebase: Firebase 初期化。Windows は firebase_auth 非対応の
+  // ため kIsWeb || Android/iOS/macOS 以外は init を試みても意味が薄いが、
+  // firebase_core 自体は Windows でも動くので落ちない範囲でスキップする。
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    // Windows など未対応プラットフォームでは fallback (ローカル運用のみ)
+  }
 
   // W3: hive を初期化。アプリのドキュメントディレクトリに hive ファイルが
   // 置かれ、アプリを閉じても本棚データが永続化される。
@@ -169,11 +183,31 @@ class MyApp extends StatelessWidget {
 */
       //Listの導入テスト
       //home:CouponListView(dummyDetail),
-      home:MainPageWidget()
+      // feature/sync-firebase: AuthGate が認証状態で LoginPage or MainPage を出し分ける。
+      home: const AuthGate(),
+      // Web (Chrome/Edge) でマウスドラッグでも横スクロールできるようにする。
+      // デフォルトは touch のみで、マウスは wheel だけしか横スクロールできない。
+      scrollBehavior: const _AppScrollBehavior(),
     );
 
   }
 
+}
+
+/// Web (Chrome/Edge) 用: 横スクロール可能な ListView をマウスドラッグでも
+/// スライドできるようにする。デフォルトの MaterialScrollBehavior は
+/// dragDevices を touch のみに絞っているため、マウス操作だと横スクロールが
+/// 効かず、Wheel でしか動かせない。
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  const _AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => const {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
 }
 
 class MyHomePage extends StatefulWidget {

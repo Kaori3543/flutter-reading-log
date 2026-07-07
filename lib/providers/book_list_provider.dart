@@ -8,6 +8,7 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/book.dart';
 import '../services/book_repository.dart';
+import '../services/firestore_book_sync.dart';
 import '../services/review_repository.dart';
 import 'book_view_settings_provider.dart';
 import 'review_list_provider.dart';
@@ -29,7 +30,8 @@ final bookRepositoryProvider = Provider<BookRepository>((ref) {
 /// - ダミー 7 件の static リスト → BookRepository 経由の hive データ
 /// - add / update / remove の各操作で hive に書き込み + state 同期
 class BookListNotifier extends StateNotifier<List<Book>> {
-  BookListNotifier(this._repository, this._reviewRepository) : super([]) {
+  BookListNotifier(this._repository, this._reviewRepository, this._sync)
+      : super([]) {
     _load();
   }
 
@@ -39,21 +41,41 @@ class BookListNotifier extends StateNotifier<List<Book>> {
   /// null 許容なのは、レビュー機能を必要としないテスト等で省略できるように。
   final ReviewRepository? _reviewRepository;
 
+  /// ログイン中のみ non-null。書き込みを Firestore にもミラーする。
+  /// 未ログイン (Hive のみ) 時は null。
+  final FirestoreBookSync? _sync;
+
   /// hive から本リストを読み込んで state にセット。
   /// 初期化時 + 変更操作の後に呼ぶ。
   void _load() {
     state = _repository.getAll();
   }
 
+  /// Firestore の snapshot 変化で Hive が書き換わった後に呼ばれる。
+  /// state を Hive の最新値に更新する。
+  void refresh() => _load();
+
+  /// Hive に保存 + (ログイン中なら) Firestore にもミラー。
+  Future<void> _save(Book book) async {
+    await _repository.save(book);
+    await _sync?.mirrorSave(book);
+  }
+
+  /// Hive から削除 + (ログイン中なら) Firestore からも削除。
+  Future<void> _remove(String id) async {
+    await _repository.remove(id);
+    await _sync?.mirrorRemove(id);
+  }
+
   /// 本を追加（または既存なら上書き）し、本棚を再ロード。
   Future<void> add(Book book) async {
-    await _repository.save(book);
+    await _save(book);
     _load();
   }
 
   /// 本のフィールドを更新。
   Future<void> update(Book book) async {
-    await _repository.save(book);
+    await _save(book);
     _load();
   }
 
@@ -62,7 +84,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
   /// 紐づくレビューがあれば一緒に削除する。`ReviewRepository` を保持して
   /// いない場合（テスト等）は本データのみ削除する。
   Future<void> remove(String id) async {
-    await _repository.remove(id);
+    await _remove(id);
     await _reviewRepository?.removeByBookId(id);
     _load();
   }
@@ -128,7 +150,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
       isFavorite: book.isFavorite,
       tags: book.tags,
     );
-    await _repository.save(updated);
+    await _save(updated);
     _load();
   }
 
@@ -136,7 +158,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
   Future<void> updateRating(String bookId, double rating) async {
     final book = _repository.findById(bookId);
     if (book == null) return;
-    await _repository.save(book.copyWith(rating: rating));
+    await _save(book.copyWith(rating: rating));
     _load();
   }
 
@@ -144,7 +166,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
   Future<void> updateProgress(String bookId, int currentPage) async {
     final book = _repository.findById(bookId);
     if (book == null) return;
-    await _repository.save(book.copyWith(currentPage: currentPage));
+    await _save(book.copyWith(currentPage: currentPage));
     _load();
   }
 
@@ -154,7 +176,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
   Future<void> updateStartedAt(String bookId, DateTime startedAt) async {
     final book = _repository.findById(bookId);
     if (book == null) return;
-    await _repository.save(book.copyWith(startedAt: startedAt));
+    await _save(book.copyWith(startedAt: startedAt));
     _load();
   }
 
@@ -163,7 +185,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
   Future<void> updateFinishedAt(String bookId, DateTime finishedAt) async {
     final book = _repository.findById(bookId);
     if (book == null) return;
-    await _repository.save(book.copyWith(finishedAt: finishedAt));
+    await _save(book.copyWith(finishedAt: finishedAt));
     _load();
   }
 
@@ -173,7 +195,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
   Future<void> updateAddedAt(String bookId, DateTime addedAt) async {
     final book = _repository.findById(bookId);
     if (book == null) return;
-    await _repository.save(book.copyWith(addedAt: addedAt));
+    await _save(book.copyWith(addedAt: addedAt));
     _load();
   }
 
@@ -182,7 +204,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
   Future<void> toggleFavoriteAuthor(String bookId) async {
     final book = _repository.findById(bookId);
     if (book == null) return;
-    await _repository.save(
+    await _save(
       book.copyWith(isFavoriteAuthor: !book.isFavoriteAuthor),
     );
     _load();
@@ -195,7 +217,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
   Future<void> toggleFavorite(String bookId) async {
     final book = _repository.findById(bookId);
     if (book == null) return;
-    await _repository.save(
+    await _save(
       book.copyWith(isFavorite: !book.isFavorite),
     );
     _load();
@@ -211,7 +233,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
         .where((t) => t.isNotEmpty)
         .toSet()
         .toList(growable: false);
-    await _repository.save(book.copyWith(tags: cleaned));
+    await _save(book.copyWith(tags: cleaned));
     _load();
   }
 
@@ -221,7 +243,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
     for (final book in books) {
       if (book.tags.contains(tag)) {
         final newTags = book.tags.where((t) => t != tag).toList();
-        await _repository.save(book.copyWith(tags: newTags));
+        await _save(book.copyWith(tags: newTags));
       }
     }
     _load();
@@ -238,7 +260,7 @@ class BookListNotifier extends StateNotifier<List<Book>> {
             .map((t) => t == oldName ? cleaned : t)
             .toSet()
             .toList(growable: false);
-        await _repository.save(book.copyWith(tags: newTags));
+        await _save(book.copyWith(tags: newTags));
       }
     }
     _load();
@@ -251,7 +273,16 @@ final bookListProvider =
     StateNotifierProvider<BookListNotifier, List<Book>>((ref) {
   final repository = ref.watch(bookRepositoryProvider);
   final reviewRepository = ref.watch(reviewRepositoryProvider);
-  return BookListNotifier(repository, reviewRepository);
+  // Firestore ミラーは firestoreBookSyncProvider から取得 (ログアウト中は null)。
+  final sync = ref.watch(firestoreBookSyncProvider);
+  final notifier = BookListNotifier(repository, reviewRepository, sync);
+  // Firestore 側で変化があると sync が notifyListeners() する。それを受けて
+  // notifier.refresh() で Hive を state に取り直す。
+  if (sync != null) {
+    sync.addListener(notifier.refresh);
+    ref.onDispose(() => sync.removeListener(notifier.refresh));
+  }
+  return notifier;
 });
 
 /// 本棚の表示設定（タブ/評価フィルタ/ソート/検索/♡）を適用した本リストを返す純粋関数。

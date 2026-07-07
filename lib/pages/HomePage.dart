@@ -19,6 +19,7 @@ import '../models/book.dart';
 import '../providers/book_list_provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/reading_goal_provider.dart';
+import '../services/auth_service.dart';
 import '../services/personalized_recommendations.dart';
 import '../services/rakuten_api.dart';
 import '../services/reminders.dart';
@@ -72,9 +73,70 @@ class _HomePageState extends ConsumerState<HomePage> {
       _lastRecommendationKeys = desiredKeys;
     }
 
+    final user = ref.watch(authStateProvider).value;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('ホーム'),
+        actions: [
+          if (user != null)
+            PopupMenuButton<String>(
+              tooltip: 'アカウント',
+              icon: CircleAvatar(
+                radius: 14,
+                backgroundColor: AppColors.accent,
+                backgroundImage: user.photoURL != null
+                    ? NetworkImage(user.photoURL!)
+                    : null,
+                child: user.photoURL == null
+                    ? const Icon(Icons.person, size: 16, color: AppColors.fg)
+                    : null,
+              ),
+              onSelected: (v) async {
+                if (v == 'signout') {
+                  await ref.read(authServiceProvider).signOut();
+                }
+              },
+              itemBuilder: (ctx) => [
+                PopupMenuItem<String>(
+                  enabled: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        user.displayName ?? 'ログイン中',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: AppColors.fg,
+                        ),
+                      ),
+                      if (user.email != null)
+                        Text(
+                          user.email!,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.mutedFg,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem<String>(
+                  value: 'signout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout, size: 16, color: AppColors.mutedFg),
+                      SizedBox(width: 8),
+                      Text('ログアウト'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 12),
