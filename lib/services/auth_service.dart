@@ -29,22 +29,16 @@ class AuthService {
 
   /// Google アカウントでサインインする。
   ///
-  /// Web は Firebase の redirect フローで、ネイティブは google_sign_in の
-  /// 対話フローで認証する。Web で popup ではなく redirect を選ぶ理由:
-  /// Chrome が Cross-Origin-Opener-Policy を厳しめにデフォルト適用するように
-  /// なり、`signInWithPopup` が「window.closed をブロックされて promise
-  /// が resolve しない」不具合を起こすため。redirect ならこの制限を受けない。
-  ///
-  /// redirect の場合、この関数は「リダイレクトを開始する」だけで返らずに
-  /// ページが遷移する。戻ってきた時に `authStateChanges` が発火するので、
-  /// LoginPage 側は特に await 結果を使わない前提。
+  /// Web は popup を使う。過去に COOP エラーで redirect に切り替えた時期も
+  /// あったが、redirect 後の authStateChanges 復元がうまく動かないケースを
+  /// 踏んだため popup に戻した。COOP エラーは Chrome の警告に留まり実挙動は
+  /// 通ることが多い (Firebase Auth SDK 内でハンドリングされる)。
+  /// ネイティブは google_sign_in の対話フローで認証する。
   Future<User?> signInWithGoogle() async {
     if (kIsWeb) {
       final provider = GoogleAuthProvider();
-      // signInWithPopup の COOP 問題を回避するため redirect を使う。
-      // getRedirectResult は AuthGate が authStateChanges で拾うので不要。
-      await _auth.signInWithRedirect(provider);
-      return null; // redirect でこの関数は事実上返らない
+      final result = await _auth.signInWithPopup(provider);
+      return result.user;
     }
 
     final googleUser = await GoogleSignIn().signIn();
