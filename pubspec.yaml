@@ -47,6 +47,12 @@ dependencies:
   flutter_rating_bar: ^4.0.1
   fl_chart: ^1.2.0
   google_fonts: ^8.1.0
+  # Web と Android の間で本棚を同期させるため。Firestore を「単一の真実」に
+  # 置き、Hive はローカルキャッシュとして残す。
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.4
+  google_sign_in: ^6.2.1
 
 dev_dependencies:
   flutter_test:
