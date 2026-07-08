@@ -214,8 +214,20 @@ class _BookshelfPageState extends ConsumerState<BookshelfPage> {
                 controller: _searchController,
                 autofocus: true,
                 onChanged: _onSearchChanged,
-                decoration: const InputDecoration(
+                // ヘッダーがダーク茶背景なので、入力文字と placeholder は
+                // 白系にコントラストを取る (デフォルトのままだと fg #2C2416
+                // が背景と近くて読めない)。
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                ),
+                cursorColor: Colors.white,
+                decoration: InputDecoration(
                   hintText: 'タイトル / 著者 / 出版社 / レビューを検索',
+                  hintStyle: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 14,
+                  ),
                   border: InputBorder.none,
                 ),
               )
